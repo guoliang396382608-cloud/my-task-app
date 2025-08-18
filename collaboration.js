@@ -214,18 +214,23 @@
     /**
      * Inicializa el módulo.
      */
-    function init() {
+    // --- 最终版本的 init 函数 ---
+    async function init() {
         const savedVersion = localStorage.getItem(VERSION_KEY);
         localDataVersion = savedVersion ? parseInt(savedVersion, 10) : 0;
         
         // 确保 supabase 客户端在第一时间被创建并挂载到 window 对象上
         window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        fetchRemoteData();
+        // 等待首次从云端获取数据或将本地数据同步到云端的操作完成
+        await fetchRemoteData(); 
+
+        // 在首次同步完成后，再开始监听后续的实时变化和轮询
         subscribeToRemoteChanges();
         setInterval(pollForChanges, POLLING_INTERVAL);
 
-        // 新增：在所有东西都设置好后，调用一个函数来启动React应用
+        // 现在，在确保一切准备就绪后，才启动React应用
+        console.log("协作模块初始化完成，正在启动主应用...");
         if (window.startApp) {
             window.startApp();
         }
@@ -239,3 +244,4 @@
     }
 
 })();
+
