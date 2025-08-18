@@ -218,10 +218,17 @@
         const savedVersion = localStorage.getItem(VERSION_KEY);
         localDataVersion = savedVersion ? parseInt(savedVersion, 10) : 0;
         
-        // Comienza a buscar datos y a escuchar cambios
+        // 确保 supabase 客户端在第一时间被创建并挂载到 window 对象上
+        window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
         fetchRemoteData();
         subscribeToRemoteChanges();
         setInterval(pollForChanges, POLLING_INTERVAL);
+
+        // 新增：在所有东西都设置好后，调用一个函数来启动React应用
+        if (window.startApp) {
+            window.startApp();
+        }
     }
     
     // Ejecutar init cuando el DOM esté listo
@@ -230,4 +237,5 @@
     } else {
         init();
     }
+
 })();
