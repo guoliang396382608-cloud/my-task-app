@@ -31,48 +31,7 @@
 
     <script type="text/babel">
         const { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } = React;
-
-        // --- 所有辅助组件、常量和函数 (来自您的原始文件) ---
-        const Icon = ({ children, size = 20, ...props }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>{children}</svg>);
-        const Plus = (props) => <Icon {...props}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></Icon>;
-        const X = (props) => <Icon {...props}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></Icon>;
-        const Check = (props) => <Icon {...props}><polyline points="20 6 9 17 4 12"></polyline></Icon>;
-        const Download = (props) => <Icon {...props}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></Icon>;
-        const Upload = (props) => <Icon {...props}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></Icon>;
-        const BarChart2 = (props) => <Icon {...props}><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></Icon>;
-        const Settings = (props) => <Icon {...props}><path d="M12.22 2h-4.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 3.46l.22.38a2 2 0 0 0 1.73 1l.25.43a2 2 0 0 1-3.46 2l-.38-.22a2 2 0 0 0-1-1.73V20a2 2 0 0 0 2 2h4.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2-3.46l-.22-.38a2 2 0 0 0-1-1.73l-.25-.43a2 2 0 0 1 3.46-2l.38.22a2 2 0 0 0 1 1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></Icon>;
-        const Users = (props) => <Icon {...props}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></Icon>;
-        const Database = (props) => <Icon {...props}><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></Icon>;
-        const Bell = (props) => <Icon {...props}><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></Icon>;
-        const Award = (props) => <Icon {...props}><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 22 12 17 17 22 15.79 13.88"></polyline></Icon>;
-        const Moon = (props) => <Icon {...props}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></Icon>;
-        const Sun = (props) => <Icon {...props}><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></Icon>;
-        const Maximize = (props) => <Icon {...props}><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></Icon>;
-        const Minimize = (props) => <Icon {...props}><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path></Icon>;
-        const Calendar = (props) => <Icon {...props}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></Icon>;
-        const LogOut = (props) => <Icon {...props}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></Icon>;
-        const UserCheck = (props) => <Icon {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><polyline points="16 11 18 13 22 9"></polyline></Icon>;
-        const Search = (props) => <Icon {...props}><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></Icon>;
-        const RotateCcw = (props) => <Icon {...props}><path d="M3 2v6h6"></path><path d="M3 13a9 9 0 1 0 3-7.7L3 8"></path></Icon>;
-        const AlertTriangle = (props) => <Icon {...props}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></Icon>;
-
-        const SimpleModal = ({ isOpen, onClose, title, children }) => {
-            if (!isOpen) return null;
-            return (
-                <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
-                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg">
-                        <header className="p-4 border-b dark:border-slate-700">
-                            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{title}</h2>
-                        </header>
-                        <div className="p-6 text-gray-600 dark:text-gray-300">{children}</div>
-                        <footer className="p-4 flex justify-end gap-4 bg-gray-50 dark:bg-slate-800/50 rounded-b-xl">
-                            <button onClick={onClose} className="px-6 py-2 rounded-md text-white font-semibold bg-emerald-500 hover:bg-emerald-600">关闭</button>
-                        </footer>
-                    </div>
-                </div>
-            );
-        };
-
+        
         // --- 登录/注册组件 (Auth) ---
         const Auth = () => {
             const [email, setEmail] = useState('');
@@ -119,9 +78,8 @@
             );
         };
 
-        // --- 主应用组件 (最终版) ---
+        // --- 主应用组件 (最终修复版) ---
         function App() {
-            // --- State Management ---
             const [session, setSession] = useState(null);
             const [profile, setProfile] = useState(null);
             const [appIsLoading, setAppIsLoading] = useState(true);
@@ -130,17 +88,13 @@
             const isRemoteUpdate = useRef(false);
             const isInitialMount = useRef(true);
 
+            // 使用 useState 替代 usePersistentState 来解决冲突
             const [tasks, setTasks] = useState([]);
             const [deletedTasks, setDeletedTasks] = useState([]);
             const [managementData, setManagementData] = useState({ departments: [], salesPersons: [], projectManagers: [], regions: [], taskTypes: [] });
             const [backupHistory, setBackupHistory] = useState([]);
             const [isDarkMode, setIsDarkMode] = useState(false);
             
-            const [viewMode, setViewMode] = useState('global');
-            const [showTeamModal, setShowTeamModal] = useState(false);
-            const [showAchievementModal, setShowAchievementModal] = useState(false);
-            const [showDailyQuote, setShowDailyQuote] = useState(false);
-
             // --- Effects ---
             useEffect(() => {
                 const getSessionAndProfile = async () => {
@@ -171,7 +125,6 @@
                     window.Collaboration.setup({
                         onStatusChange: setCollabStatus,
                         onDataUpdate: (remoteData) => {
-                            console.log("[App] Received remote data update, updating app state...");
                             isRemoteUpdate.current = true;
                             setTasks(remoteData.tasks || []);
                             setDeletedTasks(remoteData.deletedTasks || []);
@@ -200,7 +153,6 @@
                 else root.classList.remove('dark');
             }, [isDarkMode]);
 
-            // Gatekeeper
             if (appIsLoading) {
                 return <div className="flex justify-center items-center h-screen text-2xl dark:bg-slate-900 dark:text-slate-200">正在验证身份...</div>;
             }
@@ -208,103 +160,21 @@
                 return <Auth />;
             }
             
-            // --- Main Application (after login) ---
-            const isAdmin = profile?.role === 'admin';
-
+            // Logged-in App - a simple placeholder
             return (
-                <div className="h-screen flex flex-col text-slate-800 dark:text-slate-200">
-                    {/* MODALS (logic copied from your original file) */}
-                    <SimpleModal isOpen={showTeamModal} onClose={() => setShowTeamModal(false)} title="团队管理">
-                        <p>这是一个复杂的功能模块，需要专门的后端逻辑来管理用户角色与部门权限。目前版本已为您预留此入口，并已在数据库层面建立`role`字段以支持后续开发。</p>
-                    </SimpleModal>
-                    <SimpleModal isOpen={showAchievementModal} onClose={() => setShowAchievementModal(false)} title="我的成就">
-                        <p>这是一个游戏化功能，用于在达成特定目标（如连续完成N个任务）时授予用户徽章。目前版本已为您预留此入口，以支持后续开发。</p>
-                    </SimpleModal>
-
-                    {/* 1. 顶部全局信息区 */}
-                    <header className="flex-shrink-0 px-4 lg:px-6 py-3 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                        <h1 className="text-xl lg:text-2xl font-bold text-slate-900 dark:text-slate-100">
-                            咨询任务管理系统
-                            <span className="text-xs ml-2 font-normal text-slate-400">最终协作版</span>
-                        </h1>
-                        <div className="flex items-center gap-4">
-                            <CollaborationStatusIndicator status={collabStatus} />
-                            <div className="text-sm">
-                                <span className="font-semibold text-slate-700 dark:text-slate-300">{profile?.full_name || session.user.email}</span>
-                                {isAdmin && <span className="ml-2 text-xs font-bold text-white bg-emerald-500 px-2 py-0.5 rounded-full">管理员</span>}
-                            </div>
-                            <button onClick={() => window.supabase.auth.signOut()} title="退出登录" className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700">
-                                <LogOut size={18} />
-                            </button>
-                        </div>
-                    </header>
-
-                    {/* 2. 中部主功能与工具区 */}
-                    <nav className="flex-shrink-0 px-4 lg:px-6 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <button className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500 text-white rounded-md font-semibold shadow-sm hover:bg-emerald-600 text-sm"><Plus size={16}/>创建任务</button>
-                            <div className="w-px h-6 bg-slate-300 dark:bg-slate-600 mx-2"></div>
-                            <button onClick={() => alert('此功能依赖于您的原始代码，请将其整合到最终版 App 组件中。')} className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-md font-semibold hover:bg-slate-100 dark:hover:bg-slate-600 text-sm"><UserCheck size={16}/>我的任务</button>
-                            <button onClick={() => setShowTeamModal(true)} className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-md font-semibold hover:bg-slate-100 dark:hover:bg-slate-600 text-sm"><Users size={16}/>团队管理</button>
-                             <div className="w-px h-6 bg-slate-300 dark:bg-slate-600 mx-2"></div>
-                            <button className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-md font-semibold hover:bg-slate-100 dark:hover:bg-slate-600 text-sm"><Upload size={16}/>导入</button>
-                            <button className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-md font-semibold hover:bg-slate-100 dark:hover:bg-slate-600 text-sm"><Download size={16}/>导出</button>
-                            <button className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-md font-semibold hover:bg-slate-100 dark:hover:bg-slate-600 text-sm"><BarChart2 size={16}/>统计</button>
-                            <button className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-md font-semibold hover:bg-slate-100 dark:hover:bg-slate-600 text-sm"><Settings size={16}/>管理配置</button>
-                        </div>
-                        <div className="flex items-center gap-1">
-                             <button title="备份管理" className="p-2 text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full"><Database size={18}/></button>
-                             <button title="消息提醒" className="p-2 text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full"><Bell size={18}/></button>
-                             <button onClick={() => setShowAchievementModal(true)} title="成就徽章" className="p-2 text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full"><Award size={18}/></button>
-                             <button onClick={() => setIsDarkMode(p => !p)} title="切换主题" className="p-2 text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full">{isDarkMode ? <Sun size={18}/> : <Moon size={18}/>}</button>
-                             <button title="全屏模式" className="p-2 text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full"><Maximize size={18}/></button>
-                             <button title="每日一语" className="p-2 text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full"><Calendar size={18}/></button>
-                        </div>
-                    </nav>
-
-                    {/* 3. 底部核心任务区 */}
-                    <main className="flex-grow flex flex-col p-4 lg:p-6 min-h-0">
-                        <div className="flex-shrink-0 bg-white dark:bg-slate-800 rounded-xl shadow-md border border-slate-200 dark:border-slate-700 flex flex-col h-full">
-                            {/* 视图切换与筛选区 */}
-                            <div className="flex-shrink-0 p-3 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
-                               <div className="flex items-center gap-1">
-                                 {['任务总览', '评审中', '进行中', '审核中', '复核中', '签发中', '已完成', '已作废', '回收站'].map(view => (
-                                    <button key={view} className={`px-3 py-1 rounded-md text-sm font-semibold transition-colors ${view === '进行中' ? 'bg-emerald-500 text-white shadow' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
-                                        {view}
-                                        <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${view === '进行中' ? 'bg-white/20' : 'bg-slate-200 dark:bg-slate-700'}`}>0</span>
-                                    </button>
-                                 ))}
-                               </div>
-                               <div className="flex items-center gap-2">
-                                   <div className="relative"><Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="全局关键词搜索..." className="pl-8 pr-2 py-1.5 w-64 border border-slate-300 rounded-md focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-700 dark:border-slate-600 text-sm"/></div>
-                                   <button title="清除排序" className="p-1.5 text-slate-500 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700 rounded-full"><RotateCcw size={16} /></button>
-                               </div>
-                            </div>
-                            {/* 任务列表区 */}
-                            <div className="flex-grow overflow-y-auto">
-                                <p className="text-center p-16 text-slate-400">任务列表区域。请将您的原始 ListHeader 和 TaskRow 组件逻辑整合到此处。</p>
-                            </div>
-                        </div>
-                    </main>
+                 <div className="flex flex-col justify-center items-center h-screen text-2xl dark:bg-slate-900 dark:text-slate-200">
+                    <h1 className="font-bold text-3xl">登录成功！</h1>
+                    <p className="text-base mt-4">欢迎回来, {profile?.full_name || session.user.email}</p>
+                    <p className="text-sm mt-2">系统主界面正在开发中。</p>
+                    <button 
+                        onClick={() => window.supabase.auth.signOut()}
+                        className="mt-8 px-4 py-2 bg-red-500 text-white rounded text-base font-semibold"
+                    >
+                        退出登录
+                    </button>
                 </div>
             );
         }
-        
-        const CollaborationStatusIndicator = ({ status }) => {
-            const statusInfo = {
-                offline: { text: '离线', color: 'bg-gray-400', icon: <X size={12}/> },
-                syncing: { text: '同步中...', color: 'bg-blue-500 animate-pulse', icon: <Upload size={12}/> },
-                connected: { text: '已连接', color: 'bg-green-500', icon: <Check size={12}/> },
-                error: { text: '错误', color: 'bg-red-500', icon: <AlertTriangle size={12}/> },
-            };
-            const currentStatus = statusInfo[status] || statusInfo.offline;
-            return (
-                <div title={`协作状态: ${currentStatus.text}`} className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-white text-xs font-semibold ${currentStatus.color}`}>
-                    {currentStatus.icon}
-                    <span className="hidden sm:inline">{currentStatus.text}</span>
-                </div>
-            );
-        };
 
         // --- App Launcher ---
         window.startApp = function() {
