@@ -870,9 +870,13 @@
             );
         }
         
-        ReactDOM.render(<App />, document.getElementById('root'));
+        // 将立即执行，改为等待 window.startApp 函数被调用
+        window.startApp = function() {
+            ReactDOM.render(<App />, document.getElementById('root'));
+        };
     </script>
 </body>
 
 </html>
+
 
