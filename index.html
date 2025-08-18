@@ -540,7 +540,107 @@
         const QuoteModal = ({ isOpen, onClose, quote }) => { const [isRendered, setIsRendered] = useState(isOpen); useEffect(() => { if (isOpen) setIsRendered(true); }, [isOpen]); const onAnimationEnd = () => { if (!isOpen) setIsRendered(false); }; if(!isRendered) return null; return ( <div onClick={onClose} className="fixed inset-0 z-50 flex justify-center items-center p-4 bg-black/20"> <div className={`quote-modal-${isOpen ? 'enter' : 'exit'}`} onAnimationEnd={onAnimationEnd}> <div className="quote-bubble text-white rounded-lg shadow-2xl px-8 py-5 max-w-2xl text-center"> <p className="text-xl md:text-2xl font-serif">“ {quote.text} ”</p> {quote.source && <p className="text-right mt-3 text-sm opacity-80">- {quote.source}</p>} </div> </div> </div> ); };
 
         // --- Main App Component ---
+        // --- 认证组件 (门锁) ---
+        const Auth = ({ onLogin }) => {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [fullName, setFullName] = useState('');
+            const [isLoginView, setIsLoginView] = useState(true);
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+
+            const handleAuthAction = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError(null);
+                try {
+                    let response;
+                    if (isLoginView) {
+                        response = await window.supabase.auth.signInWithPassword({ email, password });
+                    } else {
+                        response = await window.supabase.auth.signUp({
+                            email,
+                            password,
+                            options: { data: { full_name: fullName } }
+                        });
+                    }
+                    if (response.error) throw response.error;
+                    if(onLogin) onLogin();
+                } catch (error) {
+                    setError(error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col justify-center items-center p-4">
+                    <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-8">
+                        <h1 className="text-3xl font-bold text-center text-slate-900 dark:text-slate-100 mb-2">咨询任务管理系统</h1>
+                        <p className="text-center text-slate-500 dark:text-slate-400 mb-6">{isLoginView ? '请登录以继续' : '创建新账户'}</p>
+                        {error && <p className="bg-red-100 text-red-700 p-3 rounded-md text-center mb-4">{error}</p>}
+                        <form onSubmit={handleAuthAction} className="space-y-4">
+                            {!isLoginView && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">姓名</label>
+                                    <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" required />
+                                </div>
+                            )}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">邮箱</label>
+                                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" required />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">密码</label>
+                                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" required />
+                            </div>
+                            <button type="submit" disabled={loading} className="w-full px-6 py-3 rounded-md text-white bg-emerald-500 hover:bg-emerald-600 font-semibold disabled:bg-emerald-300">{loading ? '处理中...' : (isLoginView ? '登录' : '注册')}</button>
+                        </form>
+                        <p className="text-center text-sm text-slate-500 mt-6">
+                            {isLoginView ? "还没有账户？" : "已有账户？"}
+                            <button onClick={() => { setIsLoginView(!isLoginView); setError(null); }} className="font-semibold text-emerald-500 hover:underline ml-1">{isLoginView ? '立即注册' : '返回登录'}</button>
+                        </p>
+                    </div>
+                </div>
+            );
+        };
+        
+        // --- 主应用组件 (带有检查逻辑) ---
         function App() {
+            // 添加用于会话管理的状态
+            const [session, setSession] = useState(null);
+            const [profile, setProfile] = useState(null);
+            const [appIsLoading, setAppIsLoading] = useState(true);
+
+            useEffect(() => {
+                const getSession = async () => {
+                    const { data: { session } } = await window.supabase.auth.getSession();
+                    setSession(session);
+                    setAppIsLoading(false);
+                };
+                getSession();
+
+                const { data: { subscription } } = window.supabase.auth.onAuthStateChange((_event, session) => {
+                    setSession(session);
+                });
+
+                return () => subscription.unsubscribe();
+            }, []);
+
+            useEffect(() => {
+                const getProfile = async () => {
+                    if (session?.user) {
+                        const { data, error } = await window.supabase.from('profiles').select('*').eq('id', session.user.id).single();
+                        if (error) { console.error('获取 profile 出错:', error); } 
+                        else { setProfile(data); }
+                    } else {
+                        setProfile(null);
+                    }
+                };
+                getProfile();
+            }, [session]);
+
+            // --- 您原有的所有 state 和函数都粘贴在这里 ---
             const [tasks, setTasks] = usePersistentState('tasks', []);
             const [deletedTasks, setDeletedTasks] = usePersistentState('deletedTasks', []);
             const [managementData, setManagementData] = usePersistentState('managementData', { departments: INITIAL_DEPARTMENTS, salesPersons: INITIAL_SALES_PERSONS, projectManagers: INITIAL_PROJECT_MANAGERS, regions: INITIAL_REGIONS, taskTypes: INITIAL_TASK_TYPES });
@@ -548,54 +648,30 @@
             const [isDarkMode, setIsDarkMode] = usePersistentState('isDarkMode', false);
             const [dailyQuote, setDailyQuote] = useState({ text: '正在获取今日箴言...', source: '网络' });
             const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
-            
-            // --- INICIO: Integración de Colaboración ---
-            const [collabStatus, setCollabStatus] = useState('offline'); // 'offline', 'syncing', 'connected', 'error'
+            const [collabStatus, setCollabStatus] = useState('offline');
             const isRemoteUpdate = useRef(false);
             const isInitialMount = useRef(true);
 
-            // Efecto para configurar la colaboración y manejar las actualizaciones remotas
             useEffect(() => {
                 if (window.Collaboration) {
                     window.Collaboration.setup({
-                        onStatusChange: (status) => {
-                            setCollabStatus(status);
-                        },
+                        onStatusChange: setCollabStatus,
                         onDataUpdate: (remoteData) => {
-                            console.log("[App] Recibiendo actualización de datos desde el servidor.");
-                            // Marcar que esta actualización es remota para evitar un bucle de sincronización
+                            console.log("[App] 接收到远程数据更新。");
                             isRemoteUpdate.current = true;
-                            
-                            // Actualizar el estado de React con los datos del servidor
-                            setTasks(remoteData.tasks || []);
-                            setDeletedTasks(remoteData.deletedTasks || []);
-                            setManagementData(remoteData.managementData || {});
-                            
-                            // Restablecer la marca después de un breve instante
-                            setTimeout(() => {
-                                isRemoteUpdate.current = false;
-                            }, 100);
+                            // 强制刷新整个页面来加载新数据
+                            window.location.reload();
                         }
                     });
                 }
             }, []);
 
-            // Efecto para sincronizar los datos locales con la nube cuando cambian
             useEffect(() => {
-                // Evitar la sincronización en el montaje inicial y durante una actualización remota
-                if (isInitialMount.current || isRemoteUpdate.current) {
-                    return;
-                }
-                console.log("[App] Los datos locales han cambiado, iniciando sincronización.");
-                if (window.Collaboration) {
-                    window.Collaboration.sync();
-                }
+                if (isInitialMount.current || isRemoteUpdate.current) { return; }
+                if (window.Collaboration) { window.Collaboration.sync(); }
             }, [tasks, deletedTasks, managementData]);
             
-            // Marcar que el montaje inicial ha terminado después del primer renderizado
-            useEffect(() => {
-                isInitialMount.current = false;
-            }, []);
+            useEffect(() => { isInitialMount.current = false; }, []);
 
             const CollaborationStatusIndicator = () => {
                 const statusInfo = {
@@ -612,7 +688,6 @@
                     </div>
                 );
             };
-            // --- FIN: Integración de Colaboración ---
 
             const [isLoading, setIsLoading] = useState(true);
             const [modalError, setModalError] = useState(null);
@@ -676,7 +751,6 @@
                 return filtered;
             }, [tasks, deletedTasks, currentView, activeFilters, debouncedSearchTerm, sortConfig]);
             
-            // --- ALL HANDLER FUNCTIONS AND DEFINITIONS ---
             const logAndSetTask = (taskId, updateFn, logMessage) => { setTasks(prevTasks => prevTasks.map(t => { if (t.id === taskId) { const newHistory = [...(t.history || []), { action: logMessage, timestamp: new Date().toISOString() }]; const updatedTask = updateFn(t); return { ...updatedTask, history: newHistory }; } return t; })); };
             const toggleDarkMode = () => setIsDarkMode(prev => !prev);
             const toggleFullscreen = () => { const elem = appRef.current; if (!elem) return; if (!document.fullscreenElement) { if (elem.requestFullscreen) elem.requestFullscreen().catch(err => alert(`全屏失败: ${err.message}`)); else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen(); } else { if (document.exitFullscreen) document.exitFullscreen(); else if (document.webkitExitFullscreen) document.webkitExitFullscreen(); } };
@@ -687,9 +761,7 @@
             const selectedTaskObjects = useMemo(() => { const selectedIds = Array.from(selectedTasks); return tasks.filter(task => selectedIds.includes(task.id)); }, [tasks, selectedTasks]);
             const handleSelectAll = (e) => { if (e.target.checked) { setSelectedTasks(new Set(filteredAndSortedTasks.map(t => t.id))); } else { setSelectedTasks(new Set()); } };
             const handleClearBackupHistory = () => { setConfirmationState({ isOpen: true, title: '清空备份历史', children: '您确定要清空所有备份历史记录吗？此操作无法撤销。', onConfirm: () => { setBackupHistory([]); setIsBackupModalOpen(false); }, confirmVariant: 'danger' }); };
-            
             const handleDownloadTemplate = () => { const templateHeaders = [ "任务下达日期", "任务编号", "项目名称", "任务类型", "所属部门", "合同金额(元)", "业务人员", "项目负责人", "合同规定完成日期", "实际完成日期", "项目进展情况", "所属地区", "状态", "是否存档" ]; const ws = window.XLSX.utils.aoa_to_sheet([templateHeaders]); const wb = window.XLSX.utils.book_new(); window.XLSX.utils.book_append_sheet(wb, ws, "Tasks"); window.XLSX.writeFile(wb, "任务导入模板.xlsx"); };
-            
             const handleFileUpload = (event) => { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { const data = new Uint8Array(e.target.result); const workbook = window.XLSX.read(data, { type: 'array' }); const worksheet = workbook.Sheets[workbook.SheetNames[0]]; const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }); if (jsonData.length < 2) { alert("文件为空或只有表头。"); return; } const fullData = window.XLSX.utils.sheet_to_json(worksheet, {defval:""}); const existingTaskIds = new Set(tasks.map(t => t.customTaskId)); const importFileTaskIds = new Set(); const validTasks = []; const rejectedTasks = []; const statusMap = { '进行中': 'inprogress', '已完成': 'done', '已作废': 'void' }; fullData.forEach((row, index) => { const customTaskId = row["任务编号"] ? String(row["任务编号"]).trim() : ''; let errors = []; if (!customTaskId || !row["项目名称"] || !row["任务类型"] || !row["项目负责人"] || !row["任务下达日期"]) { errors.push('必需字段(任务编号,项目名称,任务类型,负责人,下达日期)不能为空'); } if (existingTaskIds.has(customTaskId)) { errors.push('任务编号在系统中已存在'); } if (importFileTaskIds.has(customTaskId)) { errors.push('任务编号在文件中重复'); } if (errors.length > 0) { rejectedTasks.push({ row: index + 2, id: customTaskId, reason: errors.join('; ') }); return; } const parseDate = (excelDate) => { if (!excelDate) return null; if (typeof excelDate === 'number') { return new Date(Math.round((excelDate - 25569) * 86400 * 1000)).toISOString(); } if (typeof excelDate === 'string' && new Date(excelDate).toString() !== 'Invalid Date') { return new Date(excelDate).toISOString(); } return null; }; let taskStatus = 'inprogress'; const excelStatus = row["状态"] ? String(row["状态"]).trim() : ''; if (excelStatus && statusMap[excelStatus]) { taskStatus = statusMap[excelStatus]; } else if (row["实际完成日期"]) { taskStatus = 'done'; } const task = { id: crypto.randomUUID(), customTaskId, projectName: row["项目名称"], taskType: row["任务类型"], projectManager: row["项目负责人"], createdAt: parseDate(row["任务下达日期"]), region: row["所属地区"] || '', department: row["所属部门"] || '', contractAmount: Number(row["合同金额(元)"]) || null, salesPerson: row["业务人员"] || '', contractualDueDate: parseDate(row["合同规定完成日期"]), actualCompletionDate: parseDate(row["实际完成日期"]), status: taskStatus, progressDetails: row["项目进展情况"] ? [{ text: row["项目进展情况"], timestamp: new Date().toISOString() }] : [], isArchived: String(row["是否存档"]).trim() === '是', history: [{ action: '通过Excel导入创建', timestamp: new Date().toISOString() }] }; validTasks.push(task); importFileTaskIds.add(customTaskId); }); if (rejectedTasks.length > 0) { setImportReport({ isOpen: true, successful: validTasks.length, failed: rejectedTasks.length, errors: rejectedTasks, originalData: fullData }); } else { alert(`导入成功！共 ${validTasks.length} 条任务已添加。`); } if (validTasks.length > 0) { setTasks(prev => [...prev, ...validTasks]); } } catch (err) { console.error("File Read error:", err); alert("读取文件失败，请确保文件格式正确。"); } finally { event.target.value = ''; } }; reader.readAsArrayBuffer(file); };
             const exportErrorData = () => { const { errors, originalData } = importReport; const errorMap = new Map(); errors.forEach(err => errorMap.set(err.row, err.reason)); const errorRows = originalData.filter((_, index) => errorMap.has(index + 2)); const dataToExport = errorRows.map((row, index) => ({ ...row, '错误说明': errorMap.get(errors[index].row) })); const ws = window.XLSX.utils.json_to_sheet(dataToExport); const wb = window.XLSX.utils.book_new(); window.XLSX.utils.book_append_sheet(wb, ws, "错误报告"); window.XLSX.writeFile(wb, "导入错误报告.xlsx"); };
             const handleBackupSuccess = (count) => { const now = new Date().toISOString(); setBackupHistory(prev => [{ timestamp: now, count }, ...prev].slice(0, 50)); setIsBackupModalOpen(false); alert(`全量备份成功！共 ${count} 条任务数据已完整备份。`); };
@@ -720,6 +792,16 @@
             const tasksForCount = useMemo(() => { if (!activeFilters.department) return tasks; return tasks.filter(task => task.department === activeFilters.department); }, [tasks, activeFilters.department]);
             const urgentTaskCount = useMemo(() => tasks.filter(t => t.status === 'inprogress' && t.contractualDueDate && (new Date(t.contractualDueDate) - new Date()) / (1000 * 3600 * 24) <= 7).length, [tasks]);
             
+            // --- 核心检查逻辑 ---
+            if (appIsLoading) {
+                return <div className="flex justify-center items-center h-screen text-2xl dark:bg-slate-900 dark:text-slate-200">正在加载应用...</div>;
+            }
+
+            if (!session) {
+                return <Auth onLogin={() => window.location.reload()} />;
+            }
+            
+            // --- 已登录后显示的主应用界面 ---
             return (
                 <div ref={appRef} className="h-screen bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-200 p-4 lg:p-6 flex flex-col">
                     <TaskModal isOpen={isTaskModalOpen} onClose={handleCloseModal} onSave={handleSaveTask} task={editingTask} error={modalError} setError={setModalError} managementData={managementData} />
@@ -740,9 +822,7 @@
                     
                     <header className="flex-shrink-0 flex flex-wrap items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
                         <div><h1 className="text-2xl lg:text-3xl font-bold text-slate-900 dark:text-slate-100">咨询任务管理系统</h1><p className="text-sm text-slate-500 dark:text-slate-400">版本 4.2.3 - 协作版</p></div>
-                         {/* --- INICIO: Indicador de estado de colaboración --- */}
                         <CollaborationStatusIndicator />
-                        {/* --- FIN: Indicador de estado de colaboración --- */}
                     </header>
                     
                     <div className="flex-shrink-0 mb-4 flex items-center gap-4 flex-wrap">
@@ -795,3 +875,4 @@
 </body>
 
 </html>
+
