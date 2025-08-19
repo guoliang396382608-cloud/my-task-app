@@ -1,95 +1,79 @@
-// collaboration.js
+// collaboration.js (最终修正版)
 (function() {
-    // --- Configuración de Supabase (Manten tus credenciales aquí) ---
+    // --- Supabase 配置 ---
     const SUPABASE_URL = 'https://gpcsknsnwatqqcnywuiv.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwY3NrbnNud2F0cXFjbnl3dWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzNzc5MTMsImV4cCI6MjA2OTk1MzkxM30.M-02UaHW22nU0MLmRtiIIlcmb7tnceoisFIkTK05NCY';
-    const SYNC_TABLE = 'system_data'; // Nombre de la tabla en Supabase
+    const SYNC_TABLE = 'system_data';
 
-    // --- Claves de LocalStorage (Alineadas con index.html v4.2.3) ---
+    // --- LocalStorage 键 ---
     const TASKS_KEY = 'task_manager_tasks_v4.2.3';
     const DELETED_TASKS_KEY = 'task_manager_deletedTasks_v4.2.3';
     const MANAGEMENT_KEY = 'task_manager_managementData_v4.2.3';
     const VERSION_KEY = 'collab_data_version_v4.2.3';
     
-    // --- Constantes de Sincronización ---
-    const POLLING_INTERVAL = 5000; // 5 segundos
+    // --- 同步常量 ---
+    const POLLING_INTERVAL = 5000;
 
-    // --- Inicialización ---
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // --- 初始化 (已修正) ---
+    // 正确的初始化方式：直接使用从CDN加载的全局`supabase`对象来创建客户端实例
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // 将创建好的客户端实例挂载到window上，供index.html中的React代码使用
+    window.supabase = supabaseClient;
+
     let localDataVersion = 0;
     let statusCallbacks = [];
     let dataCallbacks = [];
 
-    /**
-     * Procesa los datos recibidos del servidor y actualiza el almacenamiento local.
-     * @param {string} remoteJsonData - Los datos en formato JSON.
-     * @param {number} version - La versión de los datos remotos.
-     */
     function processRemoteData(remoteJsonData, version) {
-        console.log(`[Collab] Recibiendo versión remota: ${version}. Versión local: ${localDataVersion}.`);
+        console.log(`[协作模块] 接收到远程版本: ${version}。 本地版本: ${localDataVersion}。`);
         const remoteData = JSON.parse(remoteJsonData);
-        
-        // Actualizar LocalStorage con los datos del servidor
         localStorage.setItem(TASKS_KEY, JSON.stringify(remoteData.tasks || []));
         localStorage.setItem(DELETED_TASKS_KEY, JSON.stringify(remoteData.deletedTasks || []));
         localStorage.setItem(MANAGEMENT_KEY, JSON.stringify(remoteData.managementData || {}));
-        
-        // Actualizar la versión local
         localStorage.setItem(VERSION_KEY, version.toString());
         localDataVersion = version;
-        
-        console.log("[Collab] Datos locales actualizados desde el servidor.");
-        // Notificar a la aplicación React que los datos han cambiado
+        console.log("[协作模块] 本地数据已从服务器更新。");
         triggerDataUpdate(remoteData);
     }
 
-    /**
-     * Obtiene la última versión de los datos del servidor.
-     */
     async function fetchRemoteData() {
         triggerStatusChange('syncing');
         try {
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from(SYNC_TABLE)
                 .select('data, version')
                 .order('version', { ascending: false })
                 .limit(1)
                 .single();
 
-            if (error && error.code !== 'PGRST116') { // PGRST116 = "single() row not found"
-                console.error("[Collab] Error al obtener datos remotos:", error);
+            if (error && error.code !== 'PGRST116') {
+                console.error("[协作模块] 获取远程数据出错:", error);
                 triggerStatusChange('error');
                 return;
             }
             
-            // Si la base de datos está vacía, sube los datos locales como la versión inicial.
             if (!data) {
-                console.log("[Collab] La base de datos en la nube está vacía. Subiendo datos locales como versión inicial.");
+                console.log("[协作模块] 云端数据库为空，上传本地数据作为初始版本。");
                 await syncToRemote();
                 triggerStatusChange('connected');
                 return;
             }
             
-            // Si la versión del servidor es más nueva, procesa los datos.
             if (data.version > localDataVersion) {
                 processRemoteData(data.data, data.version);
             }
             triggerStatusChange('connected');
 
         } catch (err) {
-            console.error('[Collab] Fallo en la obtención de datos remotos:', err);
+            console.error('[协作模块] 获取远程数据失败:', err);
             triggerStatusChange('error');
         }
     }
 
-    /**
-     * Sube el estado actual de los datos locales al servidor.
-     */
-    async function syncToRemote() {
+    async function syncToRemote(dataToSync) {
         triggerStatusChange('syncing');
         try {
-            // Obtener la versión más reciente del servidor para evitar conflictos
-            const { data: latestVersionData, error: versionError } = await supabase
+            const { data: latestVersionData, error: versionError } = await supabaseClient
                 .from(SYNC_TABLE)
                 .select('version')
                 .order('version', { ascending: false })
@@ -97,7 +81,7 @@
                 .single();
 
             if (versionError && versionError.code !== 'PGRST116') {
-                console.error("[Collab] No se pudo obtener la última versión antes de sincronizar:", versionError);
+                console.error("[协作模块] 同步前获取最新版本失败:", versionError);
                 triggerStatusChange('error');
                 return;
             }
@@ -105,20 +89,19 @@
             const latestVersion = latestVersionData ? latestVersionData.version : 0;
             const newVersion = latestVersion + 1;
             
-            const localData = {
+            const localData = dataToSync || {
                 tasks: JSON.parse(localStorage.getItem(TASKS_KEY) || '[]'),
                 deletedTasks: JSON.parse(localStorage.getItem(DELETED_TASKS_KEY) || '[]'),
                 managementData: JSON.parse(localStorage.getItem(MANAGEMENT_KEY) || '{}')
             };
             
-            const { error } = await supabase.from(SYNC_TABLE).insert([{ data: JSON.stringify(localData), version: newVersion }]);
+            const { error } = await supabaseClient.from(SYNC_TABLE).insert([{ data: JSON.stringify(localData), version: newVersion }]);
             
             if (error) {
-                console.error('[Collab] Error al subir datos a la nube:', error);
+                console.error('[协作模块] 上传数据至云端出错:', error);
                 triggerStatusChange('error');
-                // Si hay un error (ej. clave de versión duplicada), vuelve a buscar los datos más recientes
-                if (error.code === '23505') { // duplicate key value
-                   console.log('[Collab] Conflicto de versión detectado. Obteniendo los datos más recientes...');
+                if (error.code === '23505') {
+                   console.log('[协作模块] 检测到版本冲突，正在获取最新数据...');
                    fetchRemoteData();
                 }
                 return;
@@ -126,23 +109,19 @@
             
             localStorage.setItem(VERSION_KEY, newVersion.toString());
             localDataVersion = newVersion;
-            console.log(`[Collab] Datos locales sincronizados con éxito a la nube como versión ${newVersion}.`);
+            console.log(`[协作模块] 本地数据成功同步至云端，版本号 ${newVersion}。`);
             triggerStatusChange('connected');
 
         } catch (err) {
-            console.error('[Collab] Fallo al sincronizar con la nube:', err);
+            console.error('[协作模块] 同步至云端失败:', err);
             triggerStatusChange('error');
         }
     }
 
-    /**
-     * Se suscribe a los cambios en la base de datos en tiempo real.
-     */
     function subscribeToRemoteChanges() {
-        const channel = supabase.channel('collaboration_channel');
-        channel
+        supabaseClient.channel('collaboration_channel')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: SYNC_TABLE }, (payload) => {
-                console.log('[Collab] ¡Nuevo cambio detectado en tiempo real!');
+                console.log('[协作模块] 实时检测到新变更！');
                 const newVersion = payload.new.version;
                 if (newVersion > localDataVersion) {
                     processRemoteData(payload.new.data, newVersion);
@@ -150,98 +129,58 @@
             })
             .subscribe((status) => {
                  if (status === 'SUBSCRIBED') {
-                    console.log('[Collab] Conectado al canal de cambios en tiempo real.');
+                    console.log('[协作模块] 已连接到实时变更频道。');
                  }
             });
     }
     
-    /**
-     * Función de sondeo para verificar cambios si la conexión en tiempo real falla.
-     */
     async function pollForChanges() {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from(SYNC_TABLE)
                 .select('version')
                 .order('version', { ascending: false })
                 .limit(1)
                 .single();
 
-            if (error && error.code !== 'PGRST116') {
-                console.warn("[Collab Polling] No se pudo verificar la versión:", error.message);
-                return; 
-            }
-
+            if (error && error.code !== 'PGRST116') { return; }
             if (data && data.version > localDataVersion) {
-                console.log("[Collab Polling] Se detectó una nueva versión. Obteniendo datos...");
+                console.log("[轮询] 检测到新版本，正在获取数据...");
                 fetchRemoteData();
             }
         } catch (err) {
-            console.warn("[Collab Polling] Error durante el sondeo:", err.message);
+            console.warn("[轮询] 轮询过程中出错:", err.message);
         }
     }
 
     function triggerStatusChange(status) { statusCallbacks.forEach(cb => cb(status)); }
     function triggerDataUpdate(data) { dataCallbacks.forEach(cb => cb(data)); }
 
-    /**
-     * API Global para la aplicación React
-     */
     window.Collaboration = {
-        /**
-         * Inicializa la colaboración y registra los callbacks.
-         * @param {object} callbacks - Objeto con callbacks.
-         * @param {function} callbacks.onStatusChange - Se llama cuando cambia el estado de la conexión.
-         * @param {function} callbacks.onDataUpdate - Se llama cuando se reciben nuevos datos del servidor.
-         */
         setup: (callbacks) => {
             if (callbacks.onStatusChange) statusCallbacks.push(callbacks.onStatusChange);
             if (callbacks.onDataUpdate) dataCallbacks.push(callbacks.onDataUpdate);
         },
-
-        /**
-         * Notifica al módulo de colaboración que los datos locales han cambiado y deben ser sincronizados.
-         */
-        sync: () => {
-            // Se usa un pequeño retardo para agrupar múltiples cambios locales rápidos en una sola sincronización
+        sync: (dataToSync) => {
             clearTimeout(window.Collaboration._syncTimeout);
-            window.Collaboration._syncTimeout = setTimeout(syncToRemote, 500);
+            window.Collaboration._syncTimeout = setTimeout(() => syncToRemote(dataToSync), 500);
         },
-        
         _syncTimeout: null
     };
     
-    /**
-     * Inicializa el módulo.
-     */
-    // --- 最终版本的 init 函数 ---
     async function init() {
         const savedVersion = localStorage.getItem(VERSION_KEY);
         localDataVersion = savedVersion ? parseInt(savedVersion, 10) : 0;
         
-        // 确保 supabase 客户端在第一时间被创建并挂载到 window 对象上
-        window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-        // 等待首次从云端获取数据或将本地数据同步到云端的操作完成
         await fetchRemoteData(); 
-
-        // 在首次同步完成后，再开始监听后续的实时变化和轮询
         subscribeToRemoteChanges();
         setInterval(pollForChanges, POLLING_INTERVAL);
 
-        // 现在，在确保一切准备就绪后，才启动React应用
         console.log("协作模块初始化完成，正在启动主应用...");
         if (window.startApp) {
             window.startApp();
         }
     }
     
-    // Ejecutar init cuando el DOM esté listo
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
-
+    init();
 })();
-
