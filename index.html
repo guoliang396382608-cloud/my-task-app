@@ -6,123 +6,133 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        // ... 您所有的常量、辅助函数、UI组件定义都完整保留 ...
         const { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } = React;
+        
         const supabaseUrl = 'https://gpcsknsnwatqqcnywuiv.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwY3NrbnNud2F0cXFjbnl3dWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzNzc5MTMsImV4cCI6MjA2OTk1MzkxM30.M-02UaHW22nU0MLmRtiIIlcmb7tnceoisFIkTK05NCY';
         const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-        // --- 所有 Icon, Helper, Custom Hook, UI Component 定义... ---
-        // ...
-        
         // --- Auth Component ---
-        const Auth = () => { /* ... 您的 Auth 组件完整代码 ... */ };
+        const Auth = () => {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [fullName, setFullName] = useState('');
+            const [isLoginView, setIsLoginView] = useState(true);
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+            const [message, setMessage] = useState('');
+
+            const handleAuthAction = async (e) => {
+                e.preventDefault(); setLoading(true); setError(null); setMessage('');
+                try {
+                    let response;
+                    if (isLoginView) { 
+                        response = await supabase.auth.signInWithPassword({ email, password }); 
+                    } else { 
+                        const { error: signUpError } = await supabase.auth.signUp({ 
+                            email, 
+                            password, 
+                            options: { data: { full_name: fullName } }
+                        });
+                        if (signUpError) throw signUpError;
+                        setMessage('注册成功！请检查您的邮箱以完成验证。');
+                        response = { error: signUpError };
+                    }
+                    if (response.error) throw response.error;
+                } catch (error) { setError(error.message); } 
+                finally { setLoading(false); }
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col justify-center items-center p-4">
+                    <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-8">
+                        <h1 className="text-3xl font-bold text-center text-slate-900 dark:text-slate-100 mb-2">咨询任务管理系统</h1>
+                        <p className="text-center text-slate-500 dark:text-slate-400 mb-6">{isLoginView ? '请登录以继续' : '创建新账户'}</p>
+                        {error && <p className="bg-red-100 text-red-700 p-3 rounded-md text-center mb-4">{error}</p>}
+                        {message && <p className="bg-green-100 text-green-700 p-3 rounded-md text-center mb-4">{message}</p>}
+                        <form onSubmit={handleAuthAction} className="space-y-4">
+                            {!isLoginView && ( <div> <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">姓名</label> <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" required /> </div> )}
+                            <div> <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">邮箱</label> <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" required /> </div>
+                            <div> <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">密码</label> <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" required /> </div>
+                            <button type="submit" disabled={loading} className="w-full px-6 py-3 rounded-md text-white bg-emerald-500 hover:bg-emerald-600 font-semibold disabled:bg-emerald-300">{loading ? '处理中...' : (isLoginView ? '登录' : '注册')}</button>
+                        </form>
+                        <p className="text-center text-sm text-slate-500 mt-6">
+                            {isLoginView ? "还没有账户？" : "已有账户？"}
+                            <button onClick={() => { setIsLoginView(!isLoginView); setError(null); }} className="font-semibold text-emerald-500 hover:underline ml-1">{isLoginView ? '立即注册' : '返回登录'}</button>
+                        </p>
+                    </div>
+                </div>
+            );
+        };
         
         // --- Main App Component ---
         function App() {
-            // --- 状态管理 (与上一版相同) ---
             const [session, setSession] = useState(null);
             const [profile, setProfile] = useState(null);
             const [appIsLoading, setAppIsLoading] = useState(true);
             const [tasks, setTasks] = useState([]);
-            // ... 您离线版的所有其他 useState 定义都保留 ...
-            
-            // --- Effects ---
-            
-            // Effect 1 & 2: 认证和初始数据加载 (与上一版相同)
-            useEffect(() => { /* ... 认证逻辑 ... */ }, []);
-            useEffect(() => { /* ... 加载 profile 和 tasks 的逻辑 ... */ }, [session]);
 
-            // +++ [核心新增] Effect 3: 启用任务表的实时监听 +++
             useEffect(() => {
-                // 确保用户已登录才开始监听
-                if (!session) return;
+                supabase.auth.getSession().then(({ data: { session } }) => {
+                    setSession(session);
+                    if (!session) setAppIsLoading(false);
+                });
 
-                // 1. 设置实时监听器
-                const tasksListener = supabase.channel('public:tasks')
-                    .on('postgres_changes', 
-                        { 
-                            event: '*',       // 监听所有事件: INSERT, UPDATE, DELETE
-                            schema: 'public', 
-                            table: 'tasks'    // 只监听 'tasks' 这张表
-                        }, 
-                        (payload) => {
-                            console.log('实时事件:', payload);
-                            
-                            if (payload.eventType === 'INSERT') {
-                                // 当有新任务插入时，将其添加到状态中
-                                setTasks(currentTasks => [payload.new, ...currentTasks]);
-                            }
-                            if (payload.eventType === 'UPDATE') {
-                                // 当有任务更新时，替换掉旧的任务
-                                setTasks(currentTasks => currentTasks.map(task => 
-                                    task.id === payload.new.id ? payload.new : task
-                                ));
-                            }
-                            if (payload.eventType === 'DELETE') {
-                                // 当有任务被删除时，从状态中移除
-                                // 注意：Supabase 的 DELETE 事件 payload.old 里包含被删除项的 id
-                                setTasks(currentTasks => currentTasks.filter(task => 
-                                    task.id !== payload.old.id
-                                ));
-                            }
+                const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setSession(session); });
+                return () => subscription.unsubscribe();
+            }, []);
+
+            useEffect(() => {
+                if (session) {
+                    Promise.all([
+                        supabase.from('profiles').select('*').eq('id', session.user.id).single(),
+                        supabase.from('tasks').select('*').order('created_at', { ascending: false })
+                    ]).then(([profileResponse, tasksResponse]) => {
+                        if (profileResponse.error) { console.error("获取用户资料失败", profileResponse.error); }
+                        else { setProfile(profileResponse.data); }
+
+                        if (tasksResponse.error) {
+                            console.error("获取任务失败", tasksResponse.error);
+                            alert('无法加载任务列表。');
+                        } else {
+                            setTasks(tasksResponse.data);
                         }
-                    )
-                    .subscribe();
+                        setAppIsLoading(false);
+                    });
+                } else { setProfile(null); }
+            }, [session]);
 
-                console.log("已开启任务实时监听...");
-
-                // 2. 组件卸载时，清理监听器
-                return () => {
-                    console.log("正在关闭任务实时监听...");
-                    supabase.removeChannel(tasksListener);
-                };
-
-            }, [session]); // 这个 Effect 也依赖于 session，确保用户登录后才运行
-
-
-            // ... 您其他的 Effect (如暗黑模式) ...
-
-            // --- 事件处理函数改造 ---
-            
-            // [改造] handleSaveTask 函数，移除手动更新 state 的代码
-            const handleSaveTask = async (taskData, isEdit) => {
-                setModalError(null);
-                if (isEdit) {
-                    alert("更新功能待实现");
-                } else {
-                    const dataToInsert = { /* ... 准备插入的数据 ... */ };
-
-                    const { error } = await supabase.from('tasks').insert(dataToInsert);
-
-                    if (error) {
-                        console.error("创建任务失败:", error);
-                        setModalError(`创建失败: ${error.message}`);
-                    } else {
-                        // [重要] 创建成功后，我们不再需要手动 setTasks !
-                        // 实时监听器会自动收到 INSERT 事件并为我们更新界面。
-                        // 这样可以保证数据源的唯一性和一致性。
-                        handleCloseModal();
-                    }
-                }
-            };
-            
-            // ... 您的所有其他 handle 函数和计算属性 ...
-
-            // --- 渲染逻辑 (与上一版完全相同) ---
-            if (appIsLoading) { /* ... */ }
+            // --- 渲染逻辑 ---
+            if (appIsLoading) { return <div className="flex justify-center items-center h-screen text-2xl dark:bg-slate-900 dark:text-slate-200">正在加载应用...</div>; }
             if (!session) { return <Auth />; }
-            if (!profile) { /* ... */ }
+            if (!profile) { return <div className="flex justify-center items-center h-screen text-2xl dark:bg-slate-900 dark:text-slate-200">正在加载用户资料...</div>; }
             
+            // --- 诊断渲染 ---
             return (
-                <div /* ... 您的完整主界面 JSX ... */ >
-                    {/* ... 您的所有 Modal 和 UI 组件调用 ... */ }
+                <div className="p-8 font-mono text-lg bg-green-50 h-screen text-green-800">
+                    <h1 className="text-3xl font-bold">✅ 诊断页面 ✅</h1>
+                    <p className="mt-4">如果能看到这个页面，说明登录和数据加载都已成功！</p>
+                    
+                    <div className="mt-6 p-4 bg-white rounded-lg shadow">
+                        <h2 className="font-bold">数据加载结果:</h2>
+                        <p className="mt-2"><strong>用户资料 (Profile):</strong> {profile ? `姓名: ${profile.full_name}, 角色: ${profile.role}` : '❌ 未加载'}</p>
+                        <p><strong>任务数量 (Tasks count):</strong> {tasks ? `${tasks.length} 条` : '❌ 未加载'}</p>
+                    </div>
+
+                    <div className="mt-6">
+                        <p>下一步: 我将把您完整的UI界面恢复到这个已经验证过的、稳定的程序中。</p>
+                        <button 
+                            onClick={() => supabase.auth.signOut()}
+                            className="mt-8 px-4 py-2 bg-red-500 text-white rounded text-base font-semibold"
+                        >
+                            退出登录
+                        </button>
+                    </div>
                 </div>
             );
         }
         
         ReactDOM.render(<App />, document.getElementById('root'));
-
     </script>
 </body>
 </html>
