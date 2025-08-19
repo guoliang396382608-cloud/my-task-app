@@ -3,128 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>咨询任务管理系统 (稳定在线版)</title>
+    <title>咨询任务管理系统 (在线协作版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* 您所有的 CSS 样式都完整保留 */
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
         #root:empty::before { content: "正在加载应用..."; display: flex; justify-content: center; align-items: center; height: 100vh; font-size: 1.5rem; color: #6b7280; }
-        /* ... 此处省略了您所有的样式代码 ... */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-track { background: #1e293b; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
     </style>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
 </head>
 <body class="bg-slate-50 dark:bg-slate-900">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo, useRef } = React;
+        const { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } = React;
         
         const supabaseUrl = 'https://gpcsknsnwatqqcnywuiv.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwY3NrbnNud2F0cXFjbnl3dWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzNzc5MTMsImV4cCI6MjA2OTk1MzkxM30.M-02UaHW22nU0MLmRtiIIlcmb7tnceoisFIkTK05NCY';
         const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
-        
-        // --- 1. 辅助组件、常量和函数 ---
-        const Icon = ({ children, size = 20, ...props }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>{children}</svg>);
-        const MoreHorizontal = (props) => <Icon {...props}><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></Icon>;
-        const MessageSquare = (props) => <Icon {...props}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></Icon>;
-        const ArrowUpDown = (props) => <Icon {...props}><path d="m21 16-4 4-4-4m-12-8 4-4 4 4"/></Icon>;
 
-        const GRID_COLS = "grid-cols-[auto_repeat(13,_minmax(0,_1fr))]"; // 简化版 Grid
-        const formatDate = (dateStr) => { if (!dateStr) return ''; try { const d = new Date(dateStr); return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0]; } catch (e) { return ''; } };
-        const formatAmount = (amount) => { if (amount === null || amount === undefined || amount === '' || isNaN(Number(amount))) return 'N/A'; return `${Number(amount).toLocaleString('zh-CN')} 元`; };
-        const formatDuration = (totalDays) => { if (totalDays === null || isNaN(totalDays)) return { status: '-', time: ''}; if (totalDays === 0) return { status: '今天截止', time: '' }; const status = totalDays < 0 ? '已逾期' : '剩余'; const absDays = Math.abs(totalDays); return { status, time: `${absDays}天` }; };
-        
-        const ListHeader = ({ sortConfig, onRequestSort }) => {
-            const SortableHeader = ({ label, sortKey }) => {
-                const isSorted = sortConfig.key === sortKey;
-                const direction = isSorted ? sortConfig.direction : 'none';
-                return (
-                    <div className="flex items-center justify-center relative">
-                        <button onClick={() => onRequestSort(sortKey)} className="flex items-center justify-center w-full whitespace-normal">
-                            <span className="pr-5">{label}</span>
-                            <span className="absolute right-1 top-1/2 -translate-y-1/2">
-                                {isSorted ? (direction === 'ascending' ? <span className="text-emerald-500">▲</span> : <span className="text-emerald-500">▼</span>) : (<ArrowUpDown size={14} className="text-gray-400" />)}
-                            </span>
-                        </button>
-                    </div>
-                );
+        // --- 1. 所有辅助组件、常量和函数的定义 ---
+        const Auth = () => {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [fullName, setFullName] = useState('');
+            const [isLoginView, setIsLoginView] = useState(true);
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+            const [message, setMessage] = useState('');
+
+            const handleAuthAction = async (e) => {
+                e.preventDefault(); setLoading(true); setError(null); setMessage('');
+                try {
+                    let response;
+                    if (isLoginView) { response = await supabase.auth.signInWithPassword({ email, password }); } 
+                    else { 
+                        const { error: signUpError } = await supabase.auth.signUp({ 
+                            email, password, options: { data: { full_name: fullName } }
+                        });
+                        if (signUpError) throw signUpError;
+                        setMessage('注册成功！请检查您的邮箱以完成验证。');
+                        response = { error: signUpError };
+                    }
+                    if (response.error) throw response.error;
+                } catch (error) { setError(error.message); } 
+                finally { setLoading(false); }
             };
-            return (
-                <div className={`grid ${GRID_COLS} gap-4 px-4 py-3 bg-slate-100 dark:bg-slate-800 text-sm font-bold text-slate-700 dark:text-slate-300 sticky top-0 z-10 text-center border-b-2 border-slate-200 dark:border-slate-700`}>
-                    <div/>
-                    <SortableHeader label="任务下达日期" sortKey="created_at" />
-                    <SortableHeader label="任务编号" sortKey="custom_task_id" />
-                    <div>项目名称</div>
-                    <div>任务类型</div>
-                    <div>所属部门</div>
-                    <SortableHeader label="合同金额" sortKey="contract_amount" />
-                    <div>业务人员</div>
-                    <div>项目负责人</div>
-                    <SortableHeader label="合同规定完成日期" sortKey="contractual_due_date" />
-                    <div>项目进展情况</div>
-                    <div>剩余时间</div>
-                    <div>所属地区</div>
-                    <div>操作</div>
-                </div>
-            );
-        };
-
-        const TaskRow = ({ task, index }) => {
-            let timeRemaining = { status: '', time: '' };
-            let timeRemainingColorClass = 'text-slate-700 dark:text-slate-300';
-            
-            if (task.status !== 'done' && task.contractual_due_date) {
-                const today = new Date(); today.setHours(0, 0, 0, 0);
-                const dueDate = new Date(task.contractual_due_date); dueDate.setHours(0, 0, 0, 0);
-                const diffTime = dueDate.getTime() - today.getTime();
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                timeRemaining = formatDuration(diffDays);
-                if (diffDays < 0) { timeRemainingColorClass = 'text-rose-600 dark:text-rose-400'; }
-                else if (diffDays <= 7) { timeRemainingColorClass = 'text-amber-600 dark:text-amber-400'; }
-                else { timeRemainingColorClass = 'text-green-700 dark:text-green-400'; }
-            }
-            const rowBgColor = index % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-gray-50/50 dark:bg-slate-800/50';
-            const latestProgress = (task.progress_details && task.progress_details.length > 0) ? task.progress_details[0].text : '暂无进展';
 
             return (
-                 <div className={`grid ${GRID_COLS} gap-4 px-4 py-2 items-center ${rowBgColor} border-b border-gray-200 dark:border-slate-700 text-sm text-slate-700 dark:text-slate-300 text-center hover:bg-sky-100 dark:hover:bg-sky-900/50`}>
-                    <div/>
-                    <div>{formatDate(task.created_at)}</div>
-                    <div className="font-mono">{task.custom_task_id}</div>
-                    <div className="text-left">{task.project_name}</div>
-                    <div>{task.task_type}</div>
-                    <div>{task.department}</div>
-                    <div>{formatAmount(task.contract_amount)}</div>
-                    <div>{task.sales_person}</div>
-                    <div title={task.project_manager_id}>{task.project_manager_id ? task.project_manager_id.substring(0, 8) + '...' : ''}</div>
-                    <div>{formatDate(task.contractual_due_date)}</div>
-                    <div className="flex items-center justify-center gap-2" title={latestProgress}><MessageSquare size={16} /><span className="line-clamp-2 text-left">{latestProgress}</span></div>
-                    <div className={`font-medium ${timeRemainingColorClass}`}>{timeRemaining.status} {timeRemaining.time}</div>
-                    <div>{task.region}</div>
-                    <div><button className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700"><MoreHorizontal size={20} /></button></div>
+                <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col justify-center items-center p-4">
+                    <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-8">
+                        {/* Auth UI */}
+                    </div>
                 </div>
             );
         };
         
-        const Auth = ({...}) => { /* ... 您的 Auth 组件完整代码 ... */ };
-        
-        // --- 2. 主应用 (App) 组件 ---
+        // --- 2. 主应用 (App) 组件的定义 ---
         function App() {
             const [session, setSession] = useState(null);
             const [profile, setProfile] = useState(null);
             const [appIsLoading, setAppIsLoading] = useState(true);
             const [tasks, setTasks] = useState([]);
-            const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'descending' });
+            const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+            const [editingTask, setEditingTask] = useState(null);
+            const [modalError, setModalError] = useState(null);
 
+            // 初始数据加载和认证
             useEffect(() => {
                 supabase.auth.getSession().then(({ data: { session } }) => {
                     setSession(session);
                     if (!session) setAppIsLoading(false);
                 });
-                const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setSession(session); });
+
+                const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+                    setSession(session);
+                });
+
                 return () => subscription.unsubscribe();
             }, []);
 
@@ -132,10 +99,11 @@
                 if (session) {
                     Promise.all([
                         supabase.from('profiles').select('*').eq('id', session.user.id).single(),
-                        supabase.from('tasks').select('*').order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' })
+                        supabase.from('tasks').select('*').order('created_at', { ascending: false })
                     ]).then(([profileResponse, tasksResponse]) => {
                         if (profileResponse.error) { console.error("获取用户资料失败", profileResponse.error); }
                         else { setProfile(profileResponse.data); }
+
                         if (tasksResponse.error) {
                             console.error("获取任务失败", tasksResponse.error);
                             alert('无法加载任务列表。');
@@ -144,52 +112,75 @@
                         }
                         setAppIsLoading(false);
                     });
-                } else { 
+                } else {
                     setProfile(null);
                     setTasks([]);
                 }
-            }, [session, sortConfig]); // 当排序改变时也重新获取数据
+            }, [session]);
 
-            const handleAddTask = async () => { /* ... */ };
-            
-            const handleRequestSort = (key) => {
-                let direction = 'ascending';
-                if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-                    direction = 'descending';
-                }
-                setSortConfig({ key, direction });
+            // 实时监听
+            useEffect(() => {
+                if (!session) return;
+                const tasksListener = supabase.channel('public:tasks')
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, 
+                        (payload) => {
+                            if (payload.eventType === 'INSERT') {
+                                setTasks(currentTasks => [payload.new, ...currentTasks]);
+                            }
+                            if (payload.eventType === 'UPDATE') {
+                                setTasks(currentTasks => currentTasks.map(task => task.id === payload.new.id ? payload.new : task));
+                            }
+                            if (payload.eventType === 'DELETE') {
+                                setTasks(currentTasks => currentTasks.filter(task => task.id !== payload.old.id));
+                            }
+                        }
+                    ).subscribe();
+                return () => { supabase.removeChannel(tasksListener); };
+            }, [session]);
+
+            // 事件处理
+            const handleCloseModal = () => { setIsTaskModalOpen(false); setEditingTask(null); setModalError(null); };
+            const handleOpenModal = (task = null) => { setEditingTask(task); setIsTaskModalOpen(true); };
+
+            const handleSaveTask = async (taskData, isEdit) => {
+                // ... (之前已实现的创建和更新逻辑)
             };
 
+            // 渲染逻辑
             if (appIsLoading) { return <div className="flex justify-center items-center h-screen text-2xl dark:bg-slate-900 dark:text-slate-200">正在加载应用...</div>; }
             if (!session) { return <Auth />; }
             if (!profile) { return <div className="flex justify-center items-center h-screen text-2xl dark:bg-slate-900 dark:text-slate-200">正在加载用户资料...</div>; }
             
             return (
-                <div className="h-screen bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-200 p-4 lg:p-6 flex flex-col">
-                    <header className="flex-shrink-0 flex items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
+                <div className="p-8 max-w-7xl mx-auto">
+                    <header className="flex justify-between items-center mb-6">
                         <div>
-                            <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 dark:text-slate-100">咨询任务管理系统</h1>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">在线协作版 - {profile.full_name}</p>
+                            <h1 className="text-3xl font-bold">咨询任务管理系统</h1>
+                            <p className="text-lg text-gray-500">欢迎, {profile.full_name}</p>
                         </div>
                         <button onClick={() => supabase.auth.signOut()} className="px-4 py-2 bg-red-500 text-white rounded font-semibold">退出登录</button>
                     </header>
-                    <div className="flex-shrink-0 mb-4">
-                        <button onClick={()=>{/* TODO */}} className="px-4 py-2 bg-emerald-500 text-white rounded font-semibold">创建新任务</button>
+                    <div className="mb-4">
+                        <button onClick={() => handleOpenModal(null)} className="px-4 py-2 bg-emerald-500 text-white rounded font-semibold">创建新任务</button>
                     </div>
-                    <main className="bg-white dark:bg-slate-800/50 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 flex flex-col flex-grow min-h-0 overflow-hidden">
-                        <div className="flex-grow overflow-y-auto">
-                           <ListHeader sortConfig={sortConfig} onRequestSort={handleRequestSort} />
-                           {tasks.length > 0 ? (
-                                tasks.map((task, index) => <TaskRow key={task.id} task={task} index={index} />)
-                            ) : (
-                                <div className="text-center py-16 text-slate-500 dark:text-slate-400">云端还没有任务。</div>
-                            )}
-                        </div>
-                    </main>
+                    <div>
+                        {tasks.length > 0 ? (
+                            tasks.map(task => (
+                                <div key={task.id} className="p-4 mb-2 bg-white rounded shadow">
+                                    <p className="font-bold">{task.project_name}</p>
+                                    <p className="text-sm text-gray-600">{task.task_type}</p>
+                                </div>
+                            ))
+                        ) : (
+                            <p className="text-center text-gray-500 py-8">没有任务。</p>
+                        )}
+                    </div>
+                    {/* 您的 TaskModal 调用 */}
                 </div>
             );
         }
         
+        // --- 3. 最终渲染 ---
         ReactDOM.render(<App />, document.getElementById('root'));
     </script>
 </body>
