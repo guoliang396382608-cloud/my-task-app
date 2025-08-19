@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>咨询任务管理系统 最终协作版</title>
+    <title>咨询任务管理系统 (实时架构版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script defer src="https://cdn.jsdelivr.net/gh/guoliang396382608-cloud/my-task-app/collaboration.js"></script>
+    
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
         #root:empty::before { content: "正在加载应用..."; display: flex; justify-content: center; align-items: center; height: 100vh; font-size: 1.5rem; color: #6b7280; }
@@ -30,9 +30,16 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } = React;
-        
+        const { useState, useEffect, useRef } = React;
+
+        // --- 全局 Supabase 客户端 ---
+        // 我们在 collaboration.js 中创建的客户端现在直接在这里创建
+        const supabaseUrl = 'https://gpcsknsnwatqqcnywuiv.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwY3NrbnNud2F0cXFjbnl3dWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzNzc5MTMsImV4cCI6MjA2OTk1MzkxM30.M-02UaHW22nU0MLmRtiIIlcmb7tnceoisFIkTK05NCY';
+        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
         // --- 登录/注册组件 (Auth) ---
+        // (这个组件保持不变)
         const Auth = () => {
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
@@ -46,9 +53,9 @@
                 e.preventDefault(); setLoading(true); setError(null); setMessage('');
                 try {
                     let response;
-                    if (isLoginView) { response = await window.supabase.auth.signInWithPassword({ email, password }); } 
+                    if (isLoginView) { response = await supabase.auth.signInWithPassword({ email, password }); } 
                     else { 
-                        response = await window.supabase.auth.signUp({ email, password, options: { data: { full_name: fullName } } }); 
+                        response = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName } } }); 
                         if (!response.error) { setMessage('注册成功！请检查您的邮箱以完成验证。'); }
                     }
                     if (response.error) throw response.error;
@@ -78,113 +85,106 @@
             );
         };
         
-        // --- 主应用组件 (最终整合版) ---
+        // --- 主应用组件 (已升级为实时架构) ---
         function App() {
             // --- State Management ---
             const [session, setSession] = useState(null);
             const [profile, setProfile] = useState(null);
             const [appIsLoading, setAppIsLoading] = useState(true);
-
-            const [collabStatus, setCollabStatus] = useState('offline');
-            const isRemoteUpdate = useRef(false);
-            const isInitialMount = useRef(true);
-
-            const [tasks, setTasks] = useState([]);
-            const [deletedTasks, setDeletedTasks] = useState([]);
-            const [managementData, setManagementData] = useState({ departments: [], salesPersons: [], projectManagers: [], regions: [], taskTypes: [] });
-            const [backupHistory, setBackupHistory] = useState([]);
-            const [isDarkMode, setIsDarkMode] = useState(false);
-            
-            const [viewMode, setViewMode] = useState('global');
-            const [showTeamModal, setShowTeamModal] = useState(false);
-            const [showAchievementModal, setShowAchievementModal] = useState(false);
-            const [showDailyQuote, setShowDailyQuote] = useState(false);
-            const [dailyQuote, setDailyQuote] = useState({ text: '正在获取今日箴言...', source: '网络' });
-
-            const [isLoading, setIsLoading] = useState(true);
-            const [modalError, setModalError] = useState(null);
-            const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-            const [editingTask, setEditingTask] = useState(null);
-            // ... (Add other original state hooks here)
+            const [tasks, setTasks] = useState([]); // 核心的任务列表状态
+            const [isDarkMode, setIsDarkMode] = useState(false); // UI状态可以保留
             
             // --- Effects ---
+            
+            // Effect 1: 处理用户认证 (不变)
             useEffect(() => {
-                const getSessionAndProfile = async () => {
-                    const { data: { session } } = await window.supabase.auth.getSession();
+                supabase.auth.getSession().then(({ data: { session } }) => {
                     setSession(session);
-                    if (session?.user) {
-                        const { data: userProfile } = await window.supabase.from('profiles').select('*').eq('id', session.user.id).single();
-                        setProfile(userProfile);
-                    }
                     setAppIsLoading(false);
-                };
-                getSessionAndProfile();
-
-                const { data: { subscription } } = window.supabase.auth.onAuthStateChange(async (_event, session) => {
-                    setSession(session);
-                    if (session?.user) {
-                        const { data: userProfile } = await window.supabase.from('profiles').select('*').eq('id', session.user.id).single();
-                        setProfile(userProfile);
-                    } else {
-                        setProfile(null);
-                    }
                 });
+
+                const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+                    setSession(session);
+                });
+
                 return () => subscription.unsubscribe();
             }, []);
-            
+
+            // Effect 2: 登录后获取用户资料 (新增，逻辑更清晰)
             useEffect(() => {
-                if (window.Collaboration) {
-                    window.Collaboration.setup({
-                        onStatusChange: setCollabStatus,
-                        onDataUpdate: (remoteData) => {
-                            isRemoteUpdate.current = true;
-                            setTasks(remoteData.tasks || []);
-                            setDeletedTasks(remoteData.deletedTasks || []);
-                            setManagementData(remoteData.managementData || {});
-                            setBackupHistory(remoteData.backupHistory || []);
-                            setIsDarkMode(remoteData.isDarkMode || false);
-                            setTimeout(() => { isRemoteUpdate.current = false; }, 200);
+                if (session?.user) {
+                    supabase.from('profiles').select('*').eq('id', session.user.id).single()
+                        .then(({ data, error }) => {
+                            if (error) console.error("获取用户资料失败", error);
+                            else setProfile(data);
+                        });
+                } else {
+                    setProfile(null);
+                }
+            }, [session]);
+
+            // Effect 3: 新增的实时数据加载与监听代码
+            useEffect(() => {
+                if (!session) return; // 确保用户已登录
+
+                // 1. 首次加载初始任务数据
+                const fetchInitialTasks = async () => {
+                    const { data, error } = await supabase.from('tasks').select('*');
+                    if (error) console.error("错误：获取初始任务列表失败", error);
+                    else setTasks(data);
+                };
+                fetchInitialTasks();
+
+                // 2. 设置实时监听器
+                const tasksListener = supabase.channel('public:tasks')
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, 
+                        (payload) => {
+                            console.log('检测到任务表实时变化:', payload);
+                            if (payload.eventType === 'INSERT') {
+                                setTasks(currentTasks => [...currentTasks, payload.new]);
+                            }
+                            if (payload.eventType === 'UPDATE') {
+                                setTasks(currentTasks => currentTasks.map(task => task.id === payload.new.id ? payload.new : task));
+                            }
+                            if (payload.eventType === 'DELETE') {
+                                setTasks(currentTasks => currentTasks.filter(task => task.id !== payload.old.id));
+                            }
                         }
-                    });
-                }
-            }, []);
+                    )
+                    .subscribe();
 
-            useEffect(() => {
-                if (isInitialMount.current || isRemoteUpdate.current) { 
-                    if(isInitialMount.current) isInitialMount.current = false;
-                    return; 
-                }
-                if (window.Collaboration) { 
-                    window.Collaboration.sync({ tasks, deletedTasks, managementData, backupHistory, isDarkMode }); 
-                }
-            }, [tasks, deletedTasks, managementData, backupHistory, isDarkMode]);
+                // 3. 组件卸载时清理监听
+                return () => {
+                    supabase.removeChannel(tasksListener);
+                };
+            }, [session]);
 
+            // Effect 4: 暗黑模式切换 (保留)
             useEffect(() => {
                 const root = window.document.documentElement;
                 if (isDarkMode) root.classList.add('dark');
                 else root.classList.remove('dark');
             }, [isDarkMode]);
 
+            // --- Render Logic ---
             if (appIsLoading) {
-                return <div className="flex justify-center items-center h-screen text-2xl dark:bg-slate-900 dark:text-slate-200">正在验证身份...</div>;
+                return <div className="flex justify-center items-center h-screen text-2xl dark:bg-slate-900 dark:text-slate-200">正在加载应用...</div>;
             }
             if (!session) {
                 return <Auth />;
             }
             
-            // --- Placeholder for original functions and components ---
-            // This is where all your original logic would go.
-            // For now, we'll just show a success screen.
-            const isAdmin = profile?.role === 'admin';
-
             return (
                  <div className="flex flex-col justify-center items-center h-screen text-2xl dark:bg-slate-900 dark:text-slate-200">
-                    <h1 className="font-bold text-3xl">登录成功！</h1>
+                    <h1 className="font-bold text-3xl">登录成功！架构已升级！</h1>
                     <p className="text-base mt-4">欢迎回来, {profile?.full_name || session.user.email}</p>
-                    <p className="text-sm mt-2">您的协作版任务管理系统已准备就绪！</p>
-                    <p className="text-xs mt-4">下一步是将您原有的任务列表等UI组件整合到这个框架中。</p>
+                    <p className="text-sm mt-2">实时任务系统已准备就绪。</p>
+                    <div className="text-left text-xs mt-4 bg-slate-800 p-4 rounded-md font-mono">
+                        <p>当前任务数量: {tasks.length}</p>
+                        <p>试试在另一个浏览器窗口或直接在Supabase后台修改任务，这里会实时变化！</p>
+                    </div>
                     <button 
-                        onClick={() => window.supabase.auth.signOut()}
+                        onClick={() => supabase.auth.signOut()}
                         className="mt-8 px-4 py-2 bg-red-500 text-white rounded text-base font-semibold"
                     >
                         退出登录
@@ -193,24 +193,9 @@
             );
         }
         
-        // Placeholder for the status indicator component
-        const CollaborationStatusIndicator = ({ status }) => {
-            const statusInfo = {
-                offline: { text: '离线', color: 'bg-gray-400' },
-                syncing: { text: '同步中...', color: 'bg-blue-500' },
-                connected: { text: '已连接', color: 'bg-green-500' },
-                error: { text: '错误', color: 'bg-red-500' },
-            };
-            const currentStatus = statusInfo[status] || statusInfo.offline;
-            return <div className={`px-2 py-1 text-xs text-white rounded-full ${currentStatus.color}`}>{currentStatus.text}</div>;
-        };
-
-
         // --- App Launcher ---
-        window.startApp = function() {
-            ReactDOM.render(<App />, document.getElementById('root'));
-        };
+        ReactDOM.render(<App />, document.getElementById('root'));
+
     </script>
 </body>
 </html>
-
