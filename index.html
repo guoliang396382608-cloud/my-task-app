@@ -21,7 +21,6 @@
         .dark ::-webkit-scrollbar-track { background: #1e293b; }
         .dark ::-webkit-scrollbar-thumb { background: #475569; }
         .dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
-        .action-column {}
         @keyframes pulse-bg { 0%, 100% { background-color: #fef3c7; } 50% { background-color: #fde68a; } }
         .banner-pulse { animation: pulse-bg 4s infinite ease-in-out; }
         .dark .banner-pulse { animation-name: pulse-bg-dark; }
@@ -95,20 +94,93 @@
         const formatDateTime = (dateStr) => { if (!dateStr) return ''; try { return new Date(dateStr).toLocaleString('zh-CN', { hour12: false }); } catch (e) { return ''; } };
         const formatDuration = (totalDays) => { if (totalDays === null || isNaN(totalDays)) return { status: '-', time: ''}; if (totalDays === 0) return { status: '今天截止', time: '' }; const status = totalDays < 0 ? '已逾期' : '剩余'; const absDays = Math.abs(totalDays); if (absDays < 30) return { status, time: `${absDays}天` }; const years = Math.floor(absDays / 365); const months = Math.floor((absDays % 365) / 30); const days = (absDays % 365) % 30; let parts = []; if (years > 0) parts.push(`${years}年`); if (months > 0) parts.push(`${months}月`); if (days > 0) parts.push(`${days}天`); return { status, time: parts.join('') }; };
         const formatAmount = (amount) => { if (amount === null || amount === undefined || amount === '' || isNaN(Number(amount))) return 'N/A'; return `${Number(amount).toLocaleString('zh-CN')} 元`; };
+        const generateChangeLog = (oldData, newData) => { const changes = []; const getDisplayValue = (value, key) => { if (value === null || value === undefined || value === '') return '[空]'; if (key && (key.toLowerCase().includes('date') || key === 'createdAt')) return `"${formatDate(value)}"`; if (key === 'isArchived') return value ? '"是"' : '"否"'; if (key === 'contractAmount') return `"${formatAmount(value)}"`; return `"${value}"`; }; for (const key in FIELD_LABELS) { if (key === 'contractAmount') { if (Number(oldData[key] || 0) !== Number(newData[key] || 0)) { changes.push(`编辑: ${FIELD_LABELS[key]} 从 ${getDisplayValue(oldData[key], key)} 修改为 ${getDisplayValue(newData[key], key)}`); } } else { const oldValue = oldData[key]; const newValue = newData[key]; const oldFormatted = (key.endsWith('Date') || key === 'createdAt') ? formatDate(oldValue) : oldValue; const newFormatted = (key.endsWith('Date') || key === 'createdAt') ? formatDate(newValue) : newValue; if (String(oldFormatted || '') !== String(newFormatted || '')) { changes.push(`编辑: ${FIELD_LABELS[key]} 从 ${getDisplayValue(oldValue, key)} 修改为 ${getDisplayValue(newValue, key)}`); } } } return changes; };
         
-        // ... (此处省略了您离线版的所有其他UI组件和辅助函数定义)
+        function useOutsideAlerter(ref, callback) { useEffect(() => { function handleClickOutside(event) { if (ref.current && !ref.current.contains(event.target)) { callback(); } } document.addEventListener("mousedown", handleClickOutside); return () => { document.removeEventListener("mousedown", handleClickOutside); }; }, [ref, callback]); }
+        function useDebounce(value, delay) { const [debouncedValue, setDebouncedValue] = useState(value); useEffect(() => { const handler = setTimeout(() => { setDebouncedValue(value); }, delay); return () => { clearTimeout(handler); }; }, [value, delay]); return debouncedValue; }
+        
+        const exportData = async (format, tasksToExport, fileName, visibleColumns, onExportSuccess, viewSelection) => { /* 您的离线版 exportData 完整代码 */ };
 
-        // --- Auth Component (登录/注册组件) ---
-        const Auth = () => { /* ... 完整的 Auth 组件代码 ... */ };
+        const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, children, confirmVariant = 'primary' }) => { if (!isOpen) return null; const confirmButtonClasses = { primary: 'bg-emerald-500 hover:bg-emerald-600', danger: 'bg-red-500 hover:bg-red-600' }; return ( <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4"> <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg"> <header className="p-4 border-b dark:border-slate-700"><h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{title}</h2></header> <div className="p-6 text-gray-600 dark:text-gray-300 max-h-[60vh] overflow-y-auto">{children}</div> <footer className="p-4 flex justify-end gap-4 bg-gray-50 dark:bg-slate-800/50 rounded-b-xl"> <button onClick={onClose} className="px-4 py-2 rounded-md text-slate-700 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 dark:text-slate-200 font-semibold">取消</button> <button onClick={onConfirm} className={`px-6 py-2 rounded-md text-white font-semibold ${confirmButtonClasses[confirmVariant]}`}>确认</button> </footer> </div> </div> ); };
+        const SmartDropdown = ({ children, trigger, forceDirection = 'auto' }) => { const [isOpen, setIsOpen] = useState(false); const [positionClass, setPositionClass] = useState('mt-1'); const wrapperRef = useRef(null); const triggerRef = useRef(null); const dropdownRef = useRef(null); useOutsideAlerter(wrapperRef, () => setIsOpen(false)); useLayoutEffect(() => { if (isOpen && triggerRef.current && dropdownRef.current) { if (forceDirection === 'up') { setPositionClass('bottom-full mb-1'); return; } if (forceDirection === 'down') { setPositionClass('mt-1'); return; } const rect = triggerRef.current.getBoundingClientRect(); const dropdownHeight = dropdownRef.current.offsetHeight; const spaceBelow = window.innerHeight - rect.bottom; if (spaceBelow < dropdownHeight + 10 && rect.top > dropdownHeight) { setPositionClass('bottom-full mb-1'); } else { setPositionClass('mt-1'); } } }, [isOpen, forceDirection]); return ( <div className="relative w-full" ref={wrapperRef}> {React.cloneElement(trigger, { ref: triggerRef, onClick: () => setIsOpen(prev => !prev), isOpen })} {isOpen && React.cloneElement(children, { ref: dropdownRef, positionClass })} </div> ); };
+        const SingleSelectDropdown = ({ options, value, onChange, placeholder, className = '', buttonClassName = '', forceDirection = 'auto' }) => { const isObjectOptions = useMemo(() => options.length > 0 && typeof options[0] === 'object' && options[0] !== null, [options]); const handleSelect = (option) => { const selectedValue = isObjectOptions ? option.value : option; onChange(selectedValue); }; let displayText = placeholder; if (value !== null && value !== undefined) { if (isObjectOptions) { const selectedOption = options.find(opt => opt.value === value); displayText = selectedOption ? selectedOption.label : placeholder; } else { displayText = value || placeholder; } } const Trigger = React.forwardRef(({ onClick, isOpen }, ref) => ( <button ref={ref} type="button" onClick={onClick} className={`w-full flex justify-between items-center bg-gray-50 border border-gray-300 rounded-md px-3 py-2 text-gray-800 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200 text-left focus:ring-2 focus:ring-emerald-500 ${buttonClassName}`}> <span className="truncate">{displayText}</span> <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} /> </button> )); const DropdownContent = React.forwardRef(({ positionClass }, ref) => ( <div ref={ref} className={`absolute z-30 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto dark:bg-slate-700 dark:border-slate-600 ${positionClass}`}> <ul className="py-1"> {options.map((option, index) => { const optionValue = isObjectOptions ? option.value : option; const optionLabel = isObjectOptions ? option.label : option; const isSelected = value === optionValue; const key = `${isObjectOptions ? String(optionValue) : option}-${index}`; return ( <li key={key}> <button type="button" onClick={() => handleSelect(option)} className={`w-full text-left flex items-center justify-between px-3 py-2 hover:bg-gray-100 dark:hover:bg-slate-600 cursor-pointer ${isSelected ? 'font-semibold text-emerald-500' : 'dark:text-gray-200'}`}> <span>{optionLabel}</span> {isSelected && <Check size={16} />} </button> </li> ) })} </ul> </div> )); return <SmartDropdown trigger={<Trigger />} children={<DropdownContent />} forceDirection={forceDirection} />; };
+        const ComboBox = ({ options, value, onChange, placeholder, className = '' }) => { const [inputValue, setInputValue] = useState(value || ''); const [isOpen, setIsOpen] = useState(false); const [forceShowAll, setForceShowAll] = useState(false); const [positionClass, setPositionClass] = useState('mt-1'); const wrapperRef = useRef(null); const inputRef = useRef(null); const dropdownRef = useRef(null); useEffect(() => { setInputValue(value || ''); }, [value]); useOutsideAlerter(wrapperRef, () => setIsOpen(false)); useLayoutEffect(() => { if (isOpen && inputRef.current && dropdownRef.current) { const rect = inputRef.current.getBoundingClientRect(); const dropdownHeight = dropdownRef.current.offsetHeight; const spaceBelow = window.innerHeight - rect.bottom; if (spaceBelow < dropdownHeight + 10 && rect.top > dropdownHeight) { setPositionClass('bottom-full mb-1'); } else { setPositionClass('mt-1'); } } }, [isOpen, inputValue, forceShowAll]); const optionsToShow = useMemo(() => { if (forceShowAll || !inputValue) return options; return options.filter(option => option.toLowerCase().includes(inputValue.toLowerCase())); }, [inputValue, options, forceShowAll]); const handleSelect = (option) => { onChange(option); setInputValue(option); setIsOpen(false); setForceShowAll(false); }; const handleInputChange = (e) => { setForceShowAll(false); setInputValue(e.target.value); if (!isOpen) setIsOpen(true); }; const handleChevronClick = () => { if (!isOpen) { setForceShowAll(true); } else { setForceShowAll(false); } setIsOpen(!isOpen); }; const handleBlur = () => { setTimeout(() => { if (document.activeElement === inputRef.current || (dropdownRef.current && dropdownRef.current.contains(document.activeElement))) { return; } if (inputValue && !options.includes(inputValue)) { onChange(value || ''); setInputValue(value || ''); } setIsOpen(false); }, 150); }; return ( <div className={`relative w-full ${className}`} ref={wrapperRef}> <div className="relative"> <input ref={inputRef} type="text" value={inputValue} onChange={handleInputChange} onFocus={() => setIsOpen(true)} onBlur={handleBlur} placeholder={placeholder} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 text-gray-800 focus:ring-2 focus:ring-emerald-500 pr-8 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" /> <button type="button" onClick={handleChevronClick} className="absolute inset-y-0 right-0 flex items-center px-2 text-gray-500 dark:text-gray-400"> <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} /> </button> </div> {isOpen && ( <div ref={dropdownRef} className={`absolute z-30 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-52 overflow-y-auto dark:bg-slate-700 dark:border-slate-600 ${positionClass}`}> {optionsToShow.length > 0 ? ( <ul className="py-1"> {optionsToShow.map((option, index) => ( <li key={`${option}-${index}`}> <button type="button" onMouseDown={(e) => { e.preventDefault(); handleSelect(option); }} className={`w-full text-left flex items-center justify-between px-3 py-2 hover:bg-gray-100 dark:hover:bg-slate-600 cursor-pointer ${value === option ? 'font-semibold text-emerald-500' : 'dark:text-gray-200'}`}> <span>{option}</span> {value === option && <Check size={16} />} </button> </li> ))} </ul> ) : ( <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">无匹配项</div> )} </div> )} </div> ); };
+        const ManagementModal = ({ isOpen, onClose, managementData, onSave }) => { const [activeTab, setActiveTab] = useState('taskTypes'); const [localData, setLocalData] = useState(null); const [searchTerms, setSearchTerms] = useState({ departments: '', salesPersons: '', projectManagers: '', regions: '', taskTypes: '' }); useEffect(() => { if (isOpen && managementData) { setLocalData(JSON.parse(JSON.stringify(managementData))); setActiveTab('taskTypes'); } }, [isOpen, managementData]); if (!isOpen) return null; const handleAddItem = (type) => { const value = searchTerms[type].trim(); if (value && localData && !localData[type].includes(value)) { setLocalData(prev => ({ ...prev, [type]: [...prev[type], value].sort() })); setSearchTerms(prev => ({...prev, [type]: ''})); } }; const handleSearchChange = (type, value) => { setSearchTerms(prev => ({ ...prev, [type]: value })); }; const handleDeleteItem = (type, itemToDelete) => { setLocalData(prev => ({ ...prev, [type]: prev[type].filter(item => item !== itemToDelete) })); }; const handleSave = () => { onSave(localData); onClose(); }; const tabs = [{key: 'taskTypes', label: '任务类型'}, {key: 'regions', label: '所属地区'}, {key: 'departments', label: '部门'}, {key: 'salesPersons', label: '业务人员'}, {key: 'projectManagers', label: '项目负责人'}]; const renderListEditor = (type, title) => { const filteredList = localData && localData[type] ? localData[type].filter(item => item.toLowerCase().includes(searchTerms[type].toLowerCase())) : []; return ( <div className="p-4 bg-gray-50 dark:bg-slate-800 rounded-lg flex flex-col h-full"> <div className="flex gap-2 mb-3"> <input type="text" value={searchTerms[type]} onChange={(e) => handleSearchChange(type, e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" placeholder={`搜索或添加新的${title}`} /> <button onClick={() => handleAddItem(type)} className="px-4 py-2 rounded-md text-white bg-emerald-500 hover:bg-emerald-600 font-semibold flex-shrink-0">添加</button> </div> <div className="space-y-2 flex-grow overflow-y-auto pr-2"> {filteredList.map(item => ( <div key={item} className="flex justify-between items-center bg-white dark:bg-slate-700 p-2 rounded-md border dark:border-slate-600"> <span className="dark:text-gray-200 break-all">{item}</span> <button onClick={() => handleDeleteItem(type, item)} className="p-1 text-red-500 hover:text-red-700 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 flex-shrink-0 ml-2"><Trash2 size={16} /></button> </div> ))} </div> </div> ); }; return ( <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4"> <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col text-gray-800 dark:text-gray-200"> <header className="flex justify-between items-center p-4 border-b border-gray-200 bg-gray-50 dark:border-slate-700 dark:bg-slate-800 rounded-t-xl"> <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">管理配置</h2> <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700"><X className="text-gray-500 dark:text-gray-400" /></button> </header> <div className="flex-grow p-6 flex flex-col md:flex-row gap-6 overflow-hidden"> <div className="flex-shrink-0 border-b md:border-b-0 md:border-r border-gray-200 dark:border-slate-700 pr-4"> <nav className="flex flex-row md:flex-col gap-1">{tabs.map(tab => <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`px-4 py-2 text-left text-sm font-semibold rounded-md ${activeTab === tab.key ? 'bg-emerald-500 text-white' : 'hover:bg-gray-100 dark:hover:bg-slate-700'}`}>{tab.label}</button>)}</nav> </div> <div className="flex-grow overflow-y-auto h-[450px]">{renderListEditor(activeTab, tabs.find(t=>t.key===activeTab).label)}</div> </div> <footer className="p-4 flex justify-end gap-4 bg-gray-100 dark:bg-slate-800 rounded-b-xl border-t dark:border-slate-700"> <button onClick={onClose} className="px-4 py-2 rounded-md text-slate-700 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 dark:text-slate-200 font-semibold">取消</button> <button onClick={handleSave} className="px-6 py-2 rounded-md text-white bg-green-600 hover:bg-green-700 font-semibold">保存更改</button> </footer> </div> </div> ); };
+        const TaskModal = ({ isOpen, onClose, onSave, task, error, setError, managementData }) => { const [formData, setFormData] = useState({}); const [isSaving, setIsSaving] = useState(false); useEffect(() => { if (isOpen) { setError(null); const initialData = { customTaskId: 'HB', projectName: '', region: '', taskType: '', department: '', contractAmount: null, salesPerson: '', projectManager: '', isArchived: false, status: 'inprogress', contractualDueDate: '', actualCompletionDate: '', progressDetails: [], createdAt: new Date().toISOString() }; if (task) { setFormData({ ...initialData, ...task, contractualDueDate: formatDate(task.contractual_due_date), actualCompletionDate: formatDate(task.actual_completion_date), customTaskId: task.custom_task_id, projectName: task.project_name, taskType: task.task_type, contractAmount: task.contract_amount, salesPerson: task.sales_person, projectManager: task.project_manager_id, createdAt: task.created_at }); } else { setFormData(initialData); } } }, [task, isOpen, setError]); if (!isOpen) return null; const handleFormChange = (name, value) => { setFormData(prev => ({ ...prev, [name]: value })); }; const handleInputChange = (e) => { const { name, value, type, checked } = e.target; setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value })); }; const handleSubmit = async (e) => { e.preventDefault(); setIsSaving(true); try { const finalData = { ...formData, contractAmount: formData.contractAmount ? Number(formData.contractAmount) : null }; await onSave(finalData, !!task); } finally { setIsSaving(false); } }; return ( <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center p-4"> <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-3xl h-[70vh] flex flex-col text-gray-800 dark:text-gray-200"> <header className="flex justify-between items-center p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl dark:border-slate-700 dark:bg-slate-800 flex-shrink-0"> <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{task ? '编辑任务详情' : '创建新任务'}</h2> <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700"><X className="text-gray-500 dark:text-gray-400" /></button> </header> <form onSubmit={handleSubmit} className="flex flex-col flex-grow min-h-0"> <div className="p-6 overflow-y-auto flex-grow"> {error && <div className="mb-4 bg-red-100 border border-red-300 text-red-800 px-4 py-2 rounded-lg text-center text-sm">{error}</div>} <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4"> <div className="space-y-4"> <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">任务编号</label><input type="text" name="customTaskId" value={formData.customTaskId || ''} onChange={handleInputChange} disabled={!!task} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 disabled:bg-gray-200 disabled:cursor-not-allowed dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200 dark:disabled:bg-slate-800" required /></div> <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">项目名称</label><input type="text" name="projectName" value={formData.projectName || ''} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" required /></div> <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">任务类型</label><ComboBox options={managementData.taskTypes} value={formData.taskType} onChange={(val) => handleFormChange('taskType', val)} placeholder="搜索或选择任务类型"/></div> <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">所属部门</label><ComboBox options={managementData.departments} value={formData.department} onChange={(val) => handleFormChange('department', val)} placeholder="搜索或选择所属部门"/></div> </div> <div className="space-y-4"> <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">所属地区</label><ComboBox options={managementData.regions} value={formData.region} onChange={(val) => handleFormChange('region', val)} placeholder="搜索或选择所属地区" /></div> <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">业务人员</label><ComboBox options={managementData.salesPersons} value={formData.salesPerson} onChange={(val) => handleFormChange('salesPerson', val)} placeholder="搜索或选择业务人员"/></div> <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">项目负责人</label><ComboBox options={managementData.projectManagers} value={formData.projectManager} onChange={(val) => handleFormChange('projectManager', val)} placeholder="搜索或选择项目负责人"/></div> </div> <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 border-t border-gray-200 dark:border-gray-700 pt-4 mt-2"> <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">合同金额 (元)</label><input type="number" name="contractAmount" value={formData.contractAmount || ''} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" placeholder="请输入金额" step="any" /></div> <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">任务下达日期</label><input type="date" name="createdAt" value={formatDate(formData.createdAt)} onChange={(e) => setFormData({...formData, createdAt: new Date(e.target.value).toISOString()})} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200 dark:[color-scheme:dark]" /></div> <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">合同规定完成日期</label><input type="date" name="contractualDueDate" placeholder="yyyy-mm-dd" value={formData.contractualDueDate || ''} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200 dark:[color-scheme:dark]" /></div> {task && task.status === 'done' && (<div><label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">实际完成日期</label><input type="date" name="actualCompletionDate" placeholder="yyyy-mm-dd" value={formatDate(formData.actualCompletionDate)} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200 dark:[color-scheme:dark]" /></div>)} </div> </div> </div> <footer className="p-4 border-t border-gray-200 dark:border-slate-700 flex justify-end gap-4 flex-shrink-0"> <button type="button" onClick={onClose} className="px-4 py-2 rounded-md text-slate-700 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 dark:text-slate-200 font-semibold">取消</button> <button type="submit" disabled={isSaving} className="px-6 py-2 rounded-md text-white bg-emerald-500 hover:bg-emerald-600 font-semibold disabled:bg-emerald-300 disabled:cursor-wait">{isSaving ? '保存中...' : '保存'}</button> </footer> </form> </div> </div> ); };
+        const HistoryModal = ({ isOpen, onClose, onSave, task }) => { /* ... */ };
+        const CompleteTaskModal = ({ isOpen, onClose, onConfirm, task }) => { /* ... */ };
+        const BulkCompleteModal = ({ isOpen, onClose, onConfirm, tasksToComplete = [] }) => { /* ... */ };
+        const MultiSelectDropdown = ({ options, selectedOptions, onChange, placeholder, forceDirection = 'auto' }) => { /* ... */ };
+        const TaskFilter = ({ onFilterChange, allTasks, forceDirection = 'auto' }) => { /* ... */ };
+        const ColumnToggler = ({ allColumns, visibleColumns, onToggle }) => { /* ... */ };
+        const StatisticsModal = ({ isOpen, onClose, tasks }) => { /* ... */ }; 
+        const ExportModal = ({ isOpen, onClose, allNonDeletedTasks }) => { /* ... */ };
+        const ImportReportModal = ({ isOpen, onClose, report, onExportErrors }) => { /* ... */ };
+        const ActionModal = ({ state, onClose, onActionSelect }) => { if (!state.isOpen || !state.task) return null; const { task } = state; const actions = [ { label: '编辑', icon: <Edit size={16} />, action: () => onActionSelect('edit', task), className: 'text-blue-600 hover:bg-blue-50 border-blue-200 dark:text-blue-400 dark:hover:bg-blue-900/50 dark:border-blue-800', show: true }, { label: '完成', icon: <Check size={16} />, action: () => onActionSelect('complete', task), className: 'text-green-600 hover:bg-green-50 border-green-200 dark:text-green-400 dark:hover:bg-green-900/50 dark:border-green-800', show: task.status === 'inprogress' }, { label: '作废', icon: <Ban size={16} />, action: () => onActionSelect('void', task), className: 'text-orange-600 hover:bg-orange-50 border-orange-200 dark:text-orange-400 dark:hover:bg-orange-900/50 dark:border-orange-800', show: task.status === 'inprogress' }, { label: '退回', icon: <RotateCcw size={16} />, action: () => onActionSelect('revert', task), className: 'text-blue-600 hover:bg-blue-50 border-blue-200 dark:text-blue-400 dark:hover:bg-blue-900/50 dark:border-blue-800', show: (task.status === 'done' || task.status === 'void') }, { label: '删除', icon: <Trash2 size={16} />, action: () => onActionSelect('delete', task), className: 'text-red-600 hover:bg-red-50 border-red-200 dark:text-red-400 dark:hover:bg-red-900/50 dark:border-red-800', show: true } ].filter(a => a.show); return ( <div className="fixed inset-0 bg-black bg-opacity-60 z-40 flex justify-center items-center p-4"> <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-md"> <header className="p-4 border-b dark:border-slate-700"> <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">任务操作</h2> <div className="text-sm text-gray-600 dark:text-gray-300 mt-2 space-y-1 bg-gray-50 dark:bg-slate-800 p-3 rounded-md border dark:border-slate-700"> <p><span className="font-semibold w-20 inline-block text-gray-500 dark:text-gray-400">任务编号:</span> <span className="font-mono">{task.custom_task_id}</span></p> <p><span className="font-semibold w-20 inline-block text-gray-500 dark:text-gray-400">项目名称:</span> {task.project_name}</p> <p><span className="font-semibold w-20 inline-block text-gray-500 dark:text-gray-400">任务类型:</span> {task.task_type}</p> </div> </header> <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3"> {actions.map(item => ( <button key={item.label} onClick={item.action} className={`w-full flex items-center justify-center gap-3 px-3 py-2 text-sm rounded-md border ${item.className}`}> {item.icon} <span>{item.label}</span> </button> ))} </div> <footer className="p-2 flex justify-end bg-gray-50 dark:bg-slate-800/50 rounded-b-xl"> <button onClick={onClose} className="px-4 py-2 rounded-md text-slate-700 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 dark:text-slate-200 font-semibold">关闭</button> </footer> </div> </div> ); };
+        const ListHeader = ({ currentView, onSelectAll, numSelected, taskCount, sortConfig, onRequestSort }) => { if (!sortConfig) return null; const checkboxRef = useRef(null); useEffect(() => { if (checkboxRef.current) { checkboxRef.current.indeterminate = numSelected > 0 && numSelected < taskCount; } }, [numSelected, taskCount]); const isDeletedView = currentView === 'deleted'; const isDoneView = currentView === 'done'; const gridColsClass = isDeletedView ? GRID_COLS.DELETED : isDoneView ? GRID_COLS.DONE : GRID_COLS.INPROGRESS; const SortableHeader = ({ label, sortKey }) => { const isSorted = sortConfig.key === sortKey && sortConfig.isExplicit; const direction = isSorted ? sortConfig.direction : 'none'; return ( <div className="flex items-center justify-center relative"><button data-column-key={sortKey} onClick={() => onRequestSort(sortKey)} className="flex items-center justify-center w-full whitespace-normal"> <span className="pr-5">{label}</span> <span className="absolute right-1 top-1/2 -translate-y-1/2"> {isSorted ? (direction === 'ascending' ? <span className="text-emerald-500">▲</span> : <span className="text-emerald-500">▼</span>) : (<ArrowUpDown size={14} className="text-gray-400" />)} </span> </button></div> ); }; const HeaderCell = ({ label }) => (<div className="flex items-center justify-center">{label}</div>); return ( <div className={`exportable-grid-container grid ${gridColsClass} gap-4 px-4 py-3 bg-slate-100 dark:bg-slate-800 text-sm font-bold text-slate-700 dark:text-slate-300 sticky top-0 z-10 text-center border-b-2 border-slate-200 dark:border-slate-700`}> <div className="flex items-center justify-center"><input type="checkbox" ref={checkboxRef} className="form-checkbox h-4 w-4 text-emerald-600 border-gray-300 rounded bg-gray-200 dark:bg-slate-500 dark:border-slate-400" onChange={onSelectAll} checked={taskCount > 0 && numSelected === taskCount} /></div> {isDeletedView ? (<> <HeaderCell label="任务编号" /> <HeaderCell label="项目名称" /> <HeaderCell label="任务类型" /> <HeaderCell label="项目负责人" /> <SortableHeader label="删除时间" sortKey="deletedAt" /> <HeaderCell label="操作" /> </>) : (<> <SortableHeader label="任务下达日期" sortKey="created_at" /> <SortableHeader label="任务编号" sortKey="custom_task_id" /> <HeaderCell label="项目名称" /> <HeaderCell label="任务类型" /> <HeaderCell label="所属部门" /> <SortableHeader label="合同金额" sortKey="contract_amount" /> <HeaderCell label="业务人员" /> <HeaderCell label="项目负责人" /> <SortableHeader label="合同规定完成日期" sortKey="contractual_due_date" /> {isDoneView && <SortableHeader label="实际完成日期" sortKey="actual_completion_date" />} <HeaderCell label="项目进展情况" /> {!isDoneView && <HeaderCell label="剩余时间" />} {isDoneView && <HeaderCell label="存档" />} <HeaderCell label="所属地区" /> <HeaderCell label="操作" /> </>)} </div> ); };
+        const TaskRow = ({ task, onActionConfirm, currentView, index, onSelect, isSelected }) => { let timeRemaining = { status: '', time: '' }; let timeRemainingColorClass = 'text-slate-700 dark:text-slate-300'; let tooltipMessage = ''; let rowBgColor; if (currentView === 'inprogress' && task.contractual_due_date) { const today = new Date(); today.setHours(0, 0, 0, 0); const dueDate = new Date(task.contractual_due_date); dueDate.setHours(0, 0, 0, 0); const diffTime = dueDate.getTime() - today.getTime(); const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); timeRemaining = formatDuration(diffDays); if (diffDays < 0) { timeRemainingColorClass = 'text-rose-600 dark:text-rose-400'; tooltipMessage = `已逾期!`; rowBgColor = 'bg-rose-50 dark:bg-rose-900/20'; } else if (diffDays <= 7) { timeRemainingColorClass = 'text-amber-600 dark:text-amber-400'; tooltipMessage = `即将截止!`; rowBgColor = 'bg-amber-50 dark:bg-amber-900/20'; } else { timeRemainingColorClass = 'text-green-700 dark:text-green-400'; rowBgColor = 'bg-emerald-50 dark:bg-emerald-900/20'; } } else { rowBgColor = index % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-gray-50/50 dark:bg-slate-800/50'; } if (isSelected) { rowBgColor = 'bg-sky-200 dark:bg-sky-800/50'; } const gridColsClass = currentView === 'done' ? GRID_COLS.DONE : GRID_COLS.INPROGRESS; const latestProgress = useMemo(() => { if (!task.progress_details || task.progress_details.length === 0) return '暂无进展'; const sorted = [...task.progress_details].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); return sorted[0].text; }, [task.progress_details]); return ( <div className={`exportable-grid-container grid ${gridColsClass} gap-4 px-4 py-2 items-center ${rowBgColor} border-b border-gray-200 dark:border-slate-700 text-sm text-slate-700 dark:text-slate-300 text-center hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors duration-200`} title={tooltipMessage}> <div className="flex items-center justify-center"><input type="checkbox" className="form-checkbox h-4 w-4 text-emerald-600 border-gray-300 rounded bg-gray-200 dark:bg-slate-500 dark:border-slate-400" checked={isSelected} onChange={() => onSelect(task.id)} /></div> <div className="flex items-center justify-center">{formatDate(task.created_at)}</div> <div className="font-mono text-sm flex items-center justify-center">{task.custom_task_id}</div> <div className="text-slate-800 dark:text-slate-200 flex items-center justify-center whitespace-normal break-words" title={task.project_name}>{task.project_name}</div> <div className="flex items-center justify-center whitespace-normal break-words" title={task.task_type}>{task.task_type}</div> <div className="flex items-center justify-center whitespace-normal break-words" title={task.department}>{task.department}</div> <div className="flex items-center justify-center">{formatAmount(task.contract_amount)}</div> <div className="flex items-center justify-center">{task.sales_person || 'N/A'}</div> <div className="flex items-center justify-center" title={task.project_manager_id}>{task.project_manager_id ? task.project_manager_id.substring(0, 8) + '...' : ''}</div> <div className="flex items-center justify-center">{formatDate(task.contractual_due_date)}</div> {currentView === 'done' && <div className="flex items-center justify-center">{formatDate(task.actual_completion_date)}</div>} <div onClick={() => onActionConfirm('progress', task)} className="text-gray-500 dark:text-gray-400 cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center justify-center gap-2" title={latestProgress}><MessageSquare size={16} className="flex-shrink-0" /><span className="text-left line-clamp-2">{latestProgress}</span></div> {currentView !== 'done' && <div className={`flex flex-col items-center justify-center font-medium ${timeRemainingColorClass}`}> {timeRemaining.time ? ( <> <span>{timeRemaining.status}</span> <span>{timeRemaining.time}</span> </> ) : <span>-</span>} </div>} {currentView === 'done' && <div className="flex items-center justify-center">{task.is_archived ? (<span className="flex items-center text-green-600 dark:text-green-400"><CheckCircle size={16} className="mr-1" /> 已存档</span>) : (<button onClick={() => onActionConfirm('archive', task)} className="p-2 rounded-md text-gray-600 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900/50 dark:text-yellow-300 dark:hover:bg-yellow-900" title="存档任务"><Archive size={16} /></button>)}</div>} <div className="flex items-center justify-center">{task.region}</div> <div className="flex items-center justify-center action-column"> <button onClick={() => onActionConfirm('openActionModal', task)} className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-700 hover:text-gray-800 dark:hover:text-gray-200 transition-colors" title="更多操作"><MoreHorizontal size={20} /></button> </div> </div> ); };
+        const DeletedTaskRow = ({ task, onRestore, onPermanentDelete, index, onSelect, isSelected }) => { /* ... */ };
+        const BulkActionBar = ({ selectedCount, onBulkAction, currentView }) => { /* ... */ };
+        const NotificationModal = ({ isOpen, onClose, tasks }) => { /* ... */ };
+        const ImportModal = ({ isOpen, onClose, onDownloadTemplate, onImportClick }) => { /* ... */ };
+        const BackupManagementModal = ({ isOpen, onClose, onBackup, history, onClearHistory }) => { /* ... */ };
+        const Clock = ({ onClick }) => { /* ... */ };
+        const QuoteModal = ({ isOpen, onClose, quote }) => { /* ... */ };
+        
+        const Auth = () => {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [fullName, setFullName] = useState('');
+            const [isLoginView, setIsLoginView] = useState(true);
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+            const [message, setMessage] = useState('');
 
-        // --- Main App Component ---
+            const handleAuthAction = async (e) => {
+                e.preventDefault(); setLoading(true); setError(null); setMessage('');
+                try {
+                    let response;
+                    if (isLoginView) { response = await supabase.auth.signInWithPassword({ email, password }); } 
+                    else { 
+                        const { error: signUpError } = await supabase.auth.signUp({ 
+                            email, password, options: { data: { full_name: fullName } }
+                        });
+                        if (signUpError) throw signUpError;
+                        setMessage('注册成功！请检查您的邮箱以完成验证。');
+                        response = { error: signUpError };
+                    }
+                    if (response.error) throw response.error;
+                } catch (error) { setError(error.message); } 
+                finally { setLoading(false); }
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col justify-center items-center p-4">
+                    <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-8">
+                        <h1 className="text-3xl font-bold text-center text-slate-900 dark:text-slate-100 mb-2">咨询任务管理系统</h1>
+                        <p className="text-center text-slate-500 dark:text-slate-400 mb-6">{isLoginView ? '请登录以继续' : '创建新账户'}</p>
+                        {error && <p className="bg-red-100 text-red-700 p-3 rounded-md text-center mb-4">{error}</p>}
+                        {message && <p className="bg-green-100 text-green-700 p-3 rounded-md text-center mb-4">{message}</p>}
+                        <form onSubmit={handleAuthAction} className="space-y-4">
+                            {!isLoginView && ( <div> <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">姓名</label> <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" required /> </div> )}
+                            <div> <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">邮箱</label> <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" required /> </div>
+                            <div> <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">密码</label> <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" required /> </div>
+                            <button type="submit" disabled={loading} className="w-full px-6 py-3 rounded-md text-white bg-emerald-500 hover:bg-emerald-600 font-semibold disabled:bg-emerald-300">{loading ? '处理中...' : (isLoginView ? '登录' : '注册')}</button>
+                        </form>
+                        <p className="text-center text-sm text-slate-500 mt-6">
+                            {isLoginView ? "还没有账户？" : "已有账户？"}
+                            <button onClick={() => { setIsLoginView(!isLoginView); setError(null); }} className="font-semibold text-emerald-500 hover:underline ml-1">{isLoginView ? '立即注册' : '返回登录'}</button>
+                        </p>
+                    </div>
+                </div>
+            );
+        };
+        
         function App() {
-            // --- 状态管理 ---
             const [session, setSession] = useState(null);
             const [profile, setProfile] = useState(null);
             const [appIsLoading, setAppIsLoading] = useState(true);
             const [tasks, setTasks] = useState([]);
-            // 恢复您离线版的所有 UI 状态
             const [deletedTasks, setDeletedTasks] = useState([]);
             const [managementData, setManagementData] = useState({ departments: INITIAL_DEPARTMENTS, salesPersons: INITIAL_SALES_PERSONS, projectManagers: INITIAL_PROJECT_MANAGERS, regions: INITIAL_REGIONS, taskTypes: INITIAL_TASK_TYPES });
             const [backupHistory, setBackupHistory] = useState([]);
@@ -142,7 +214,6 @@
             const appRef = useRef(null);
             const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-            // --- Effects ---
             useEffect(() => {
                 supabase.auth.getSession().then(({ data: { session } }) => {
                     setSession(session);
@@ -154,7 +225,20 @@
 
             useEffect(() => {
                 if (session) {
-                    // ... (数据加载逻辑)
+                    Promise.all([
+                        supabase.from('profiles').select('*').eq('id', session.user.id).single(),
+                        supabase.from('tasks').select('*').order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' })
+                    ]).then(([profileResponse, tasksResponse]) => {
+                        if (profileResponse.error) { console.error("获取用户资料失败", profileResponse.error); }
+                        else { setProfile(profileResponse.data); }
+                        if (tasksResponse.error) {
+                            console.error("获取任务失败", tasksResponse.error);
+                            alert('无法加载任务列表。');
+                        } else {
+                            setTasks(tasksResponse.data);
+                        }
+                        setAppIsLoading(false);
+                    });
                 } else { 
                     setProfile(null);
                     setTasks([]);
@@ -162,77 +246,76 @@
             }, [session, sortConfig]);
 
             useEffect(() => {
-                // ... (实时监听逻辑)
+                if (!session) return;
+                const tasksListener = supabase.channel('public:tasks')
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, 
+                        (payload) => {
+                            if (payload.eventType === 'INSERT') { setTasks(currentTasks => [payload.new, ...currentTasks].sort((a,b) => new Date(b.created_at) - new Date(a.created_at))); }
+                            if (payload.eventType === 'UPDATE') { setTasks(currentTasks => currentTasks.map(task => task.id === payload.new.id ? payload.new : task)); }
+                            if (payload.eventType === 'DELETE') { setTasks(currentTasks => currentTasks.filter(task => task.id !== payload.old.id)); }
+                        }
+                    ).subscribe();
+                return () => { supabase.removeChannel(tasksListener); };
             }, [session]);
 
-            // --- 事件处理函数 ---
+            useEffect(() => { const root = window.document.documentElement; if (isDarkMode) root.classList.add('dark'); else root.classList.remove('dark'); }, [isDarkMode]);
+            useEffect(() => { const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement); document.addEventListener('fullscreenchange', handleFullscreenChange); return () => document.removeEventListener('fullscreenchange', handleFullscreenChange); }, []);
+            
             const handleCloseModal = () => { setIsTaskModalOpen(false); setEditingTask(null); setModalError(null); };
             const handleOpenModal = (task = null) => { setEditingTask(task); setIsTaskModalOpen(true); };
-
-            const handleSaveTask = async (taskData, isEdit) => {
-                setModalError(null);
-                const dataToSubmit = {
-                    project_name: taskData.projectName,
-                    task_type: taskData.taskType,
-                    department: taskData.department,
-                    region: taskData.region,
-                    contract_amount: taskData.contractAmount ? Number(taskData.contractAmount) : null,
-                    sales_person: taskData.salesPerson,
-                    project_manager_id: session.user.id, // 示例
-                    contractual_due_date: taskData.contractualDueDate || null,
-                };
-
-                try {
-                    if (isEdit) {
-                        const { error } = await supabase.from('tasks').update(dataToSubmit).eq('id', taskData.id);
-                        if (error) throw error;
-                    } else {
-                        const dataToInsert = { ...dataToSubmit, custom_task_id: taskData.customTaskId, creator_id: session.user.id };
-                        const { error } = await supabase.from('tasks').insert(dataToInsert);
-                        if (error) throw error;
-                    }
-                    handleCloseModal();
-                } catch (error) {
-                    console.error("保存任务失败:", error);
-                    setModalError(`保存失败: ${error.message}`);
-                    throw error;
-                }
-            };
             
-            // ... (您的所有其他 handle 函数和计算属性)
+            const handleSaveTask = async (taskData, isEdit) => { /* ... */ };
+            const handleDeleteTask = async (taskId) => { /* ... */ };
+            const handleTaskAction = (actionType, data) => { /* ... */ };
+            // ... (您的所有其他 handle 函数)
 
-            // --- 渲染逻辑 ---
-            if (appIsLoading) { return <div>...</div>; }
+            const filteredAndSortedTasks = useMemo(() => {
+                // ... (您的完整筛选和排序逻辑)
+                return tasks;
+            }, [tasks, currentView]);
+
+            if (appIsLoading) { return <div className="flex justify-center items-center h-screen text-2xl dark:bg-slate-900 dark:text-slate-200">正在加载应用...</div>; }
             if (!session) { return <Auth />; }
-            if (!profile) { return <div>...</div>; }
+            if (!profile) { return <div className="flex justify-center items-center h-screen text-2xl dark:bg-slate-900 dark:text-slate-200">正在加载用户资料...</div>; }
             
             return (
-                <div ref={appRef} className="h-screen ... flex flex-col">
+                <div ref={appRef} className="h-screen bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-200 p-4 lg:p-6 flex flex-col">
                     <TaskModal isOpen={isTaskModalOpen} onClose={handleCloseModal} onSave={handleSaveTask} task={editingTask} error={modalError} setError={setModalError} managementData={managementData} />
-                    {/* ... (调用所有其他的 Modal 组件) */}
+                    <ConfirmationModal isOpen={confirmationState.isOpen} onClose={() => setConfirmationState({isOpen: false})} onConfirm={confirmationState.onConfirm} title={confirmationState.title} confirmVariant={confirmationState.confirmVariant}>{confirmationState.children}</ConfirmationModal>
+                    <ActionModal state={actionModalState} onClose={() => setActionModalState({ isOpen: false, task: null })} onActionSelect={handleTaskAction} />
                     
-                    <header className="flex-shrink-0 ...">
+                    <header className="flex-shrink-0 flex flex-wrap items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
                         {/* 您的 Header 完整 UI */}
                     </header>
                     
-                    <div className="flex-shrink-0 mb-4 ...">
-                        <button onClick={() => handleOpenModal(null)} className="...">创建任务</button>
-                        {/* 您的所有其他功能按钮 */}
+                    <div className="flex-shrink-0 mb-4 flex items-center gap-4 flex-wrap">
+                        <button onClick={() => handleOpenModal(null)} className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg font-semibold shadow-sm hover:bg-emerald-600">
+                            <Plus size={18}/>创建任务
+                        </button>
+                         {/* 其他功能按钮 */}
                     </div>
                     
-                    <main className="... flex flex-col flex-grow min-h-0 overflow-hidden">
+                    <main className="bg-white dark:bg-slate-800/50 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 flex flex-col flex-grow min-h-0 overflow-hidden">
                         {/* 您的视图切换和筛选区 */}
                         <div className="flex-grow overflow-y-auto">
-                            <ListHeader {...props} />
-                            {/* 您的任务列表渲染逻辑 */}
+                            <ListHeader 
+                                currentView={currentView} 
+                                onSelectAll={() => {}} 
+                                numSelected={selectedTasks.size} 
+                                taskCount={filteredAndSortedTasks.length} 
+                                sortConfig={sortConfig} 
+                                onRequestSort={() => {}} 
+                            />
+                            {filteredAndSortedTasks.length === 0 ? (
+                                 <div className="text-center py-16 text-slate-500 dark:text-slate-400">此视图下没有任务。</div>
+                            ) : (
+                                filteredAndSortedTasks.map((task, index) => <TaskRow key={task.id} task={task} index={index} onActionConfirm={handleTaskAction} currentView={currentView} onSelect={() => {}} isSelected={false} />)
+                            )}
                         </div>
                     </main>
                 </div>
             );
         }
-        
-        // --- 所有子组件的完整定义 ---
-        // ...
         
         ReactDOM.render(<App />, document.getElementById('root'));
     </script>
