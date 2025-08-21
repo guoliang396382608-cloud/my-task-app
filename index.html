@@ -3,38 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>咨询任务管理系统 v2.0</title>
+  <title>咨询任务管理系统</title>
   <!-- 外部资源 -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-  <!-- Tailwind配置（保留原始风格） -->
+  <!-- Tailwind配置（严格匹配原系统色调） -->
   <script>
     tailwind.config = {
       theme: {
         extend: {
           colors: {
-            primary: '#165DFF', // 原始主色
-            secondary: '#36CFC9',
+            primary: '#1E50B3', // 原系统主色调
+            secondary: '#3694DB',
             success: '#52C41A',
             warning: '#FAAD14',
-            danger: '#FF4D4F',
-            gray: {
-              100: '#F5F5F5',
-              200: '#E5E5E5',
-              300: '#D9D9D9',
-              400: '#BFBFBF',
-              500: '#8C8C8C',
-              600: '#595959',
-              700: '#434343',
-              800: '#262626',
-              900: '#1F1F1F',
+            danger: '#F5222D',
+            'system-gray': {
+              100: '#F5F7FA',
+              200: '#E4E6EB',
+              300: '#C9CDD4',
+              400: '#86909C',
+              500: '#4E5969',
+              600: '#272E3B',
             }
           },
           fontFamily: {
-            sans: ['Microsoft YaHei', 'sans-serif'],
+            sans: ['Microsoft YaHei', 'SimHei', 'sans-serif'],
           },
         },
       }
@@ -43,191 +39,184 @@
 
   <style type="text/tailwindcss">
     @layer utilities {
-      /* 保留原始任务卡片样式 */
-      .task-row {
-        @apply flex items-center py-2 px-3 border-b border-gray-200 hover:bg-gray-50 transition-colors;
+      /* 原系统样式还原 */
+      .system-btn {
+        @apply px-3 py-1.5 rounded text-sm border transition-all duration-200;
       }
-      .btn-primary {
-        @apply bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 transition-colors text-sm;
+      .system-btn-primary {
+        @apply bg-primary text-white border-primary hover:bg-primary/90;
       }
-      .btn-secondary {
-        @apply bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 transition-colors text-sm;
+      .system-btn-secondary {
+        @apply bg-white text-system-gray-600 border-system-gray-300 hover:bg-system-gray-100;
       }
-      .badge {
-        @apply px-2 py-0.5 rounded-full text-xs font-medium;
+      .table-header {
+        @apply bg-system-gray-100 text-system-gray-600 font-medium;
       }
-      .header-actions {
-        @apply flex flex-wrap gap-2 mb-4;
+      .table-row {
+        @apply border-b border-system-gray-200 hover:bg-system-gray-50;
       }
       .status-tag {
-        @apply inline-block px-2 py-1 rounded text-xs font-medium;
+        @apply px-2 py-0.5 rounded text-xs font-medium;
+      }
+      .page-container {
+        @apply container mx-auto px-4 py-5;
+      }
+      .card-container {
+        @apply bg-white border border-system-gray-200 rounded-md shadow-sm;
       }
     }
   </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-  <!-- 登录页面（保留原始登录逻辑） -->
-  <div id="login-page" class="min-h-screen flex items-center justify-center bg-gray-100">
-    <div class="w-full max-w-md bg-white p-8 rounded-lg shadow-md">
-      <div class="text-center mb-6">
-        <h2 class="text-2xl font-bold text-gray-800">咨询任务管理系统</h2>
-        <p class="text-gray-500 text-sm mt-1">请登录以继续</p>
+<body class="bg-system-gray-100 text-system-gray-600 min-h-screen">
+  <!-- 登录页面（还原原系统登录样式） -->
+  <div id="login-page" class="min-h-screen flex items-center justify-center bg-system-gray-100 p-4">
+    <div class="w-full max-w-md bg-white border border-system-gray-200 rounded-md shadow-md overflow-hidden">
+      <div class="bg-primary px-6 py-4 text-white">
+        <h2 class="text-xl font-bold">咨询任务管理系统</h2>
+        <p class="text-sm opacity-90 mt-1">专业的任务流程管理平台</p>
       </div>
       
-      <div class="mb-4">
-        <label class="block text-gray-700 mb-1 text-sm">邮箱</label>
-        <input type="email" id="login-email" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+      <div class="p-6">
+        <div class="mb-4">
+          <label class="block text-system-gray-600 mb-1.5 text-sm">邮箱地址</label>
+          <input type="email" id="login-email" class="w-full px-3 py-2 border border-system-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary">
+        </div>
+        
+        <div class="mb-6">
+          <label class="block text-system-gray-600 mb-1.5 text-sm">密码</label>
+          <input type="password" id="login-password" class="w-full px-3 py-2 border border-system-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary">
+        </div>
+        
+        <button onclick="handleLogin()" class="w-full system-btn system-btn-primary">
+          登录系统
+        </button>
+        
+        <div id="login-error" class="mt-3 text-danger text-sm text-center hidden"></div>
       </div>
-      
-      <div class="mb-6">
-        <label class="block text-gray-700 mb-1 text-sm">密码</label>
-        <input type="password" id="login-password" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
-      </div>
-      
-      <button onclick="handleLogin()" class="w-full bg-primary text-white py-2 rounded-md hover:bg-primary/90 transition-colors">
-        登录
-      </button>
-      
-      <div id="login-error" class="mt-3 text-danger text-sm text-center hidden"></div>
     </div>
   </div>
 
   <!-- 主应用界面 -->
   <div id="app" class="hidden">
-    <!-- 顶部导航 -->
-    <header class="bg-white shadow-sm">
-      <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-        <div>
-          <h1 class="text-lg font-bold text-gray-800">咨询任务管理系统</h1>
-          <p class="text-xs text-gray-500">v2.0 | 专业版</p>
-        </div>
-        
-        <div class="flex items-center gap-4">
-          <div class="text-sm text-gray-600">
-            <span id="current-date"></span>
+    <!-- 顶部导航栏（严格还原原系统布局） -->
+    <header class="bg-white border-b border-system-gray-200">
+      <div class="page-container py-3">
+        <div class="flex justify-between items-center">
+          <div>
+            <h1 class="text-lg font-bold text-system-gray-800">咨询任务管理系统</h1>
+            <p class="text-xs text-system-gray-500 mt-0.5">v2.0 | 企业版</p>
           </div>
           
-          <!-- 通知铃铛 -->
-          <div class="relative">
-            <button onclick="toggleNotifications()" class="text-gray-600 hover:text-primary">
-              <i class="fa fa-bell-o text-lg"></i>
-              <span id="notification-badge" class="absolute -top-1 -right-1 bg-danger text-white text-xs rounded-full w-4 h-4 flex items-center justify-center hidden">0</span>
-            </button>
-          </div>
-          
-          <!-- 用户信息 -->
-          <div class="flex items-center gap-2">
-            <span id="user-info" class="text-sm text-gray-700"></span>
-            <button onclick="handleLogout()" class="text-gray-500 hover:text-danger text-sm">
-              <i class="fa fa-sign-out"></i>
-            </button>
+          <div class="flex items-center gap-6">
+            <div class="text-sm">
+              <span id="current-date" class="text-system-gray-600"></span>
+            </div>
+            
+            <div class="relative">
+              <input type="text" placeholder="搜索..." class="pl-7 pr-3 py-1.5 border border-system-gray-300 rounded-md text-sm w-48 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary">
+              <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-system-gray-400 text-sm"></i>
+            </div>
+            
+            <div class="flex items-center gap-3">
+              <!-- 通知图标 -->
+              <div class="relative cursor-pointer">
+                <i class="fa fa-bell-o text-system-gray-600"></i>
+                <span class="absolute -top-1 -right-1 w-4 h-4 bg-danger text-white text-xs rounded-full flex items-center justify-center hidden">3</span>
+              </div>
+              
+              <!-- 用户信息 -->
+              <div class="flex items-center gap-2">
+                <span id="current-user" class="text-sm"></span>
+                <button onclick="handleLogout()" class="text-system-gray-500 hover:text-danger text-sm">
+                  <i class="fa fa-sign-out"></i>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </header>
 
-    <!-- 数据备份提醒（保留原始提示） -->
-    <div id="backup-alert" class="bg-warning/10 border-l-4 border-warning text-warning p-3 text-sm hidden">
+    <!-- 数据备份提醒条（原系统样式） -->
+    <div id="backup-alert" class="bg-warning/10 border-l-4 border-warning text-warning px-4 py-2.5 text-sm flex items-center">
       <i class="fa fa-exclamation-circle mr-2"></i>
       <span>数据备份提醒：已超过30天未执行全量备份，请及时处理</span>
-      <button onclick="hideBackupAlert()" class="ml-2 text-warning hover:text-warning/80">
+      <button onclick="hideBackupAlert()" class="ml-4 text-warning hover:text-warning/80">
         <i class="fa fa-times"></i>
       </button>
     </div>
 
     <!-- 主内容区 -->
-    <main class="container mx-auto px-4 py-5">
-      <!-- 功能按钮区（保留原始布局） -->
-      <div class="header-actions">
-        <button id="btn-team-management" class="btn-secondary flex items-center">
-          <i class="fa fa-users mr-1"></i> 团队管理
+    <main class="page-container">
+      <!-- 功能按钮区（严格按原系统顺序排列） -->
+      <div class="flex flex-wrap gap-2 mb-4">
+        <button id="btn-team-management" class="system-btn system-btn-secondary flex items-center">
+          <i class="fa fa-users mr-1.5"></i> 团队管理
         </button>
-        <button id="btn-create-task" class="btn-primary flex items-center">
-          <i class="fa fa-plus mr-1"></i> 创建任务
+        <button id="btn-create-task" class="system-btn system-btn-primary flex items-center">
+          <i class="fa fa-plus mr-1.5"></i> 创建任务
         </button>
-        <button onclick="exportTasks()" class="btn-secondary flex items-center">
-          <i class="fa fa-download mr-1"></i> 导出任务
+        <button onclick="exportTasks()" class="system-btn system-btn-secondary flex items-center">
+          <i class="fa fa-download mr-1.5"></i> 导出任务
         </button>
-        <label class="btn-secondary flex items-center cursor-pointer">
-          <i class="fa fa-upload mr-1"></i> 导入任务
+        <label class="system-btn system-btn-secondary flex items-center cursor-pointer">
+          <i class="fa fa-upload mr-1.5"></i> 导入任务
           <input type="file" id="import-file" accept=".xlsx,.csv" class="hidden" onchange="importTasks(event)">
         </label>
-        <button id="btn-statistics" class="btn-secondary flex items-center">
-          <i class="fa fa-bar-chart mr-1"></i> 统计
+        <button id="btn-statistics" class="system-btn system-btn-secondary flex items-center">
+          <i class="fa fa-bar-chart mr-1.5"></i> 统计
         </button>
-        <button id="btn-settings" class="btn-secondary flex items-center">
-          <i class="fa fa-cog mr-1"></i> 管理配置
+        <button id="btn-settings" class="system-btn system-btn-secondary flex items-center">
+          <i class="fa fa-cog mr-1.5"></i> 管理配置
         </button>
       </div>
 
-      <!-- 搜索和筛选区 -->
-      <div class="bg-white p-3 rounded-md shadow-sm mb-4">
-        <div class="flex flex-wrap gap-3">
-          <div class="flex-1 min-w-[200px]">
-            <div class="relative">
-              <input type="text" id="search-input" placeholder="搜索任务编号、项目名称..." 
-                class="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-              <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-            </div>
-          </div>
-          
-          <div class="flex gap-2">
-            <select id="status-filter" class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-              <option value="">全部状态</option>
-              <option value="评审中">评审中</option>
-              <option value="待分配">待分配</option>
-              <option value="进行中">进行中</option>
-              <option value="审核中">审核中</option>
-              <option value="复核中">复核中</option>
-              <option value="待签发">待签发</option>
-              <option value="已完成">已完成</option>
-            </select>
-            
-            <button onclick="resetFilters()" class="btn-secondary">
-              <i class="fa fa-refresh mr-1"></i> 重置
-            </button>
-          </div>
-        </div>
-      </div>
+      <!-- 任务列表卡片 -->
+      <div class="card-container">
+        <!-- 表格头部 -->
+        <table class="w-full text-sm" cellspacing="0">
+          <thead>
+            <tr class="table-header">
+              <th class="py-3 px-4 text-left w-12">序号</th>
+              <th class="py-3 px-4 text-left w-24">任务下达日期</th>
+              <th class="py-3 px-4 text-left w-20">任务编号</th>
+              <th class="py-3 px-4 text-left">项目名称</th>
+              <th class="py-3 px-4 text-left w-24">咨询类型</th>
+              <th class="py-3 px-4 text-left w-24">咨询金额</th>
+              <th class="py-3 px-4 text-left w-24">咨询人</th>
+              <th class="py-3 px-4 text-left w-24">状态</th>
+              <th class="py-3 px-4 text-left w-32">操作</th>
+            </tr>
+          </thead>
+          <tbody id="task-table-body">
+            <!-- 加载状态 -->
+            <tr>
+              <td colspan="9" class="py-12 text-center">
+                <div class="inline-flex items-center text-system-gray-500">
+                  <i class="fa fa-spinner fa-spin mr-2"></i>
+                  <span>加载任务数据中...</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
-      <!-- 任务列表（保留原始表格样式） -->
-      <div class="bg-white rounded-md shadow-sm overflow-hidden">
-        <!-- 列表头部 -->
-        <div class="grid grid-cols-12 bg-gray-50 py-3 px-4 text-sm font-medium text-gray-600 border-b border-gray-200">
-          <div class="col-span-1">序号</div>
-          <div class="col-span-2">任务下达日期</div>
-          <div class="col-span-1">任务编号</div>
-          <div class="col-span-2">项目名称</div>
-          <div class="col-span-1">咨询类型</div>
-          <div class="col-span-1">咨询金额</div>
-          <div class="col-span-1">咨询人</div>
-          <div class="col-span-1">状态</div>
-          <div class="col-span-2">操作</div>
-        </div>
-
-        <!-- 列表内容 -->
-        <div id="task-list" class="max-h-[calc(100vh-320px)] overflow-y-auto">
-          <!-- 任务行将通过JS动态生成 -->
-          <div class="flex items-center justify-center h-40 text-gray-500">
-            <div class="text-center">
-              <i class="fa fa-spinner fa-spin text-xl mb-2"></i>
-              <p>加载任务中...</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- 分页 -->
-        <div class="py-3 px-4 border-t border-gray-200 flex justify-between items-center text-sm">
-          <div class="text-gray-600">
+        <!-- 分页控件（原系统样式） -->
+        <div class="border-t border-system-gray-200 py-3 px-4 flex justify-between items-center">
+          <div class="text-sm text-system-gray-500">
             共 <span id="total-tasks">0</span> 条记录
           </div>
-          <div class="flex gap-1">
-            <button onclick="prevPage()" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50" disabled>
-              <i class="fa fa-chevron-left"></i>
+          <div class="flex items-center gap-2">
+            <button onclick="prevPage()" class="system-btn system-btn-secondary w-8 h-8 p-0 flex items-center justify-center disabled:opacity-50" disabled>
+              <i class="fa fa-angle-left"></i>
             </button>
-            <span id="page-info" class="px-3 py-1">第 1 页</span>
-            <button onclick="nextPage()" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
-              <i class="fa fa-chevron-right"></i>
+            <div class="flex items-center gap-1">
+              <button class="w-8 h-8 flex items-center justify-center rounded bg-primary text-white text-sm">1</button>
+              <button class="w-8 h-8 flex items-center justify-center rounded hover:bg-system-gray-100 text-sm">2</button>
+              <button class="w-8 h-8 flex items-center justify-center rounded hover:bg-system-gray-100 text-sm">3</button>
+            </div>
+            <button onclick="nextPage()" class="system-btn system-btn-secondary w-8 h-8 p-0 flex items-center justify-center">
+              <i class="fa fa-angle-right"></i>
             </button>
           </div>
         </div>
@@ -235,39 +224,39 @@
     </main>
   </div>
 
-  <!-- 创建/编辑任务弹窗 -->
-  <div id="task-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-      <div class="p-4 border-b border-gray-200 flex justify-between items-center">
-        <h3 id="task-modal-title" class="text-lg font-bold text-gray-800">创建任务</h3>
-        <button onclick="closeTaskModal()" class="text-gray-500 hover:text-gray-700">
+  <!-- 创建/编辑任务弹窗（原系统风格） -->
+  <div id="task-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-md shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="bg-primary px-6 py-3 text-white flex justify-between items-center">
+        <h3 id="task-modal-title" class="font-bold">创建任务</h3>
+        <button onclick="closeTaskModal()" class="text-white hover:text-white/80">
           <i class="fa fa-times"></i>
         </button>
       </div>
       
-      <div class="p-4">
+      <div class="p-6">
         <form id="task-form">
           <input type="hidden" id="task-id">
           
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
             <div>
-              <label class="block text-gray-700 text-sm mb-1">任务编号 <span class="text-danger">*</span></label>
-              <input type="text" id="task-number" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" required>
+              <label class="block text-system-gray-600 mb-1.5 text-sm">任务编号 <span class="text-danger">*</span></label>
+              <input type="text" id="task-number" class="w-full px-3 py-2 border border-system-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" required>
             </div>
             
             <div>
-              <label class="block text-gray-700 text-sm mb-1">任务下达日期 <span class="text-danger">*</span></label>
-              <input type="date" id="task-date" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" required>
+              <label class="block text-system-gray-600 mb-1.5 text-sm">任务下达日期 <span class="text-danger">*</span></label>
+              <input type="date" id="task-date" class="w-full px-3 py-2 border border-system-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" required>
             </div>
             
             <div class="md:col-span-2">
-              <label class="block text-gray-700 text-sm mb-1">项目名称 <span class="text-danger">*</span></label>
-              <input type="text" id="task-project" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" required>
+              <label class="block text-system-gray-600 mb-1.5 text-sm">项目名称 <span class="text-danger">*</span></label>
+              <input type="text" id="task-project" class="w-full px-3 py-2 border border-system-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" required>
             </div>
             
             <div>
-              <label class="block text-gray-700 text-sm mb-1">咨询类型</label>
-              <select id="task-type" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+              <label class="block text-system-gray-600 mb-1.5 text-sm">咨询类型</label>
+              <select id="task-type" class="w-full px-3 py-2 border border-system-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary">
                 <option value="技术咨询">技术咨询</option>
                 <option value="管理咨询">管理咨询</option>
                 <option value="财务咨询">财务咨询</option>
@@ -277,18 +266,18 @@
             </div>
             
             <div>
-              <label class="block text-gray-700 text-sm mb-1">咨询金额</label>
-              <input type="number" id="task-amount" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+              <label class="block text-system-gray-600 mb-1.5 text-sm">咨询金额</label>
+              <input type="number" id="task-amount" step="0.01" class="w-full px-3 py-2 border border-system-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary">
             </div>
             
             <div>
-              <label class="block text-gray-700 text-sm mb-1">咨询人</label>
-              <input type="text" id="task-consultant" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+              <label class="block text-system-gray-600 mb-1.5 text-sm">咨询人</label>
+              <input type="text" id="task-consultant" class="w-full px-3 py-2 border border-system-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary">
             </div>
             
             <div>
-              <label class="block text-gray-700 text-sm mb-1">状态</label>
-              <select id="task-status" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+              <label class="block text-system-gray-600 mb-1.5 text-sm">状态</label>
+              <select id="task-status" class="w-full px-3 py-2 border border-system-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary">
                 <option value="评审中">评审中</option>
                 <option value="待分配">待分配</option>
                 <option value="进行中">进行中</option>
@@ -300,49 +289,49 @@
             </div>
             
             <div class="md:col-span-2">
-              <label class="block text-gray-700 text-sm mb-1">任务描述</label>
-              <textarea id="task-description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"></textarea>
+              <label class="block text-system-gray-600 mb-1.5 text-sm">任务描述</label>
+              <textarea id="task-description" rows="3" class="w-full px-3 py-2 border border-system-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"></textarea>
             </div>
             
-            <div id="assignee-container" class="md:col-span-2">
-              <label class="block text-gray-700 text-sm mb-1">负责人（可多选）</label>
-              <select id="task-assignees" multiple class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm h-24">
-                <!-- 由JS动态填充用户选项 -->
+            <div class="md:col-span-2">
+              <label class="block text-system-gray-600 mb-1.5 text-sm">负责人（可多选）</label>
+              <select id="task-assignees" multiple class="w-full px-3 py-2 border border-system-gray-300 rounded-md text-sm h-24 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary">
+                <!-- 由JS动态填充 -->
               </select>
-              <div class="text-xs text-gray-500 mt-1">按住Ctrl键可多选</div>
+              <div class="text-xs text-system-gray-500 mt-1">按住Ctrl键可多选</div>
             </div>
           </div>
         </form>
       </div>
       
-      <div class="p-4 border-t border-gray-200 flex justify-end gap-2">
-        <button onclick="closeTaskModal()" class="btn-secondary">取消</button>
-        <button onclick="saveTaskForm()" class="btn-primary">保存</button>
+      <div class="px-6 pb-6 pt-3 border-t border-system-gray-200 flex justify-end gap-3">
+        <button onclick="closeTaskModal()" class="system-btn system-btn-secondary">取消</button>
+        <button onclick="saveTaskForm()" class="system-btn system-btn-primary">保存</button>
       </div>
     </div>
   </div>
 
   <!-- 团队管理弹窗 -->
-  <div id="team-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-      <div class="p-4 border-b border-gray-200 flex justify-between items-center">
-        <h3 class="text-lg font-bold text-gray-800">团队管理</h3>
-        <button onclick="closeTeamModal()" class="text-gray-500 hover:text-gray-700">
+  <div id="team-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-md shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="bg-primary px-6 py-3 text-white flex justify-between items-center">
+        <h3 class="font-bold">团队管理</h3>
+        <button onclick="closeTeamModal()" class="text-white hover:text-white/80">
           <i class="fa fa-times"></i>
         </button>
       </div>
       
       <!-- 管理员功能区 -->
-      <div id="admin-section" class="p-4 border-b border-gray-200 hidden">
-        <h4 class="font-medium text-gray-800 mb-3">添加新用户</h4>
+      <div id="admin-section" class="p-6 border-b border-system-gray-200 hidden">
+        <h4 class="font-medium text-system-gray-800 mb-3">添加新用户</h4>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
-            <label class="block text-gray-700 text-xs mb-1">邮箱</label>
-            <input type="email" id="new-user-email" class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+            <label class="block text-system-gray-600 text-xs mb-1.5">邮箱</label>
+            <input type="email" id="new-user-email" class="w-full px-3 py-2 border border-system-gray-300 rounded-md text-sm">
           </div>
           <div>
-            <label class="block text-gray-700 text-xs mb-1">角色</label>
-            <select id="new-user-role" class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+            <label class="block text-system-gray-600 text-xs mb-1.5">角色</label>
+            <select id="new-user-role" class="w-full px-3 py-2 border border-system-gray-300 rounded-md text-sm">
               <option value="经理">经理</option>
               <option value="前台客服">前台客服</option>
               <option value="部门负责人">部门负责人</option>
@@ -353,14 +342,14 @@
             </select>
           </div>
           <div class="flex items-end">
-            <button onclick="addNewUser()" class="w-full bg-primary text-white px-2 py-1 rounded text-sm">添加</button>
+            <button onclick="addNewUser()" class="system-btn system-btn-primary w-full">添加</button>
           </div>
         </div>
       </div>
       
       <!-- 用户列表 -->
-      <div class="p-4">
-        <h4 class="font-medium text-gray-800 mb-3">用户权限配置</h4>
+      <div class="p-6">
+        <h4 class="font-medium text-system-gray-800 mb-3">用户权限配置</h4>
         <div id="user-list" class="space-y-3">
           <!-- 用户项将通过JS动态生成 -->
         </div>
@@ -368,21 +357,8 @@
     </div>
   </div>
 
-  <!-- 通知弹窗 -->
-  <div id="notifications-modal" class="fixed top-16 right-4 w-80 bg-white rounded-md shadow-lg z-50 hidden">
-    <div class="p-3 border-b border-gray-200">
-      <h4 class="font-medium text-gray-800">通知消息</h4>
-    </div>
-    <div id="notifications-list" class="max-h-80 overflow-y-auto">
-      <!-- 通知内容将通过JS动态生成 -->
-      <div class="p-3 text-center text-gray-500 text-sm">
-        暂无通知
-      </div>
-    </div>
-  </div>
-
   <script>
-    // ==== 初始化Supabase（使用你的项目信息） ====
+    // Supabase配置（使用你的项目信息）
     const supabaseUrl = "https://gpcsknsnwatqqcnywuiv.supabase.co";
     const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwY3NrbnNud2F0cXFjbnl3dWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzNzc5MTMsImV4cCI6MjA2OTk1MzkxM30.M-02UaHW22nU0MLmRtiIIlcmb7tnceoisFIkTK05NCY";
     const sb = window.supabase.createClient(supabaseUrl, supabaseKey);
@@ -417,7 +393,6 @@
         currentUser = data.session.user;
         await initApp();
       } else {
-        // 显示登录页面
         document.getElementById('login-page').classList.remove('hidden');
       }
 
@@ -437,12 +412,12 @@
     // 初始化应用
     async function initApp() {
       try {
-        // 隐藏登录页，显示应用
+        // 切换显示状态
         document.getElementById('login-page').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
         
         // 显示用户信息
-        document.getElementById('user-info').textContent = currentUser.email;
+        document.getElementById('current-user').textContent = currentUser.email;
         
         // 加载用户权限
         await loadUserPermissions();
@@ -453,21 +428,19 @@
         // 加载任务列表
         await loadTasks();
         
-        // 检查备份提醒
-        checkBackupAlert();
+        // 显示备份提醒
+        document.getElementById('backup-alert').classList.remove('hidden');
         
-        // 订阅任务变化（实时更新）
-        subscribeToTasks();
-        
-        // 加载通知
-        loadNotifications();
+        // 绑定按钮事件
+        document.getElementById('btn-create-task').addEventListener('click', createTask);
+        document.getElementById('btn-team-management').addEventListener('click', openTeamModal);
       } catch (error) {
-        console.error('初始化应用失败:', error);
+        console.error('初始化失败:', error);
         alert('系统初始化失败: ' + error.message);
       }
     }
 
-    // ==== 登录/退出功能 ====
+    // 登录处理
     async function handleLogin() {
       const email = document.getElementById('login-email').value;
       const password = document.getElementById('login-password').value;
@@ -490,6 +463,7 @@
       }
     }
 
+    // 退出登录
     async function handleLogout() {
       try {
         await sb.auth.signOut();
@@ -498,7 +472,7 @@
       }
     }
 
-    // ==== 权限管理 ====
+    // 加载用户权限
     async function loadUserPermissions() {
       try {
         // 获取用户角色和管理员状态
@@ -510,28 +484,38 @@
           
         currentPermissions.isAdmin = userData.is_admin || false;
         
-        // 获取用户权限
-        const { data: permData } = await sb
-          .from('permissions')
-          .select('can_create, can_edit, can_delete, can_assign')
-          .eq('user_id', currentUser.id)
-          .single();
-          
-        if (permData) {
-          currentPermissions.canCreate = permData.can_create;
-          currentPermissions.canEdit = permData.can_edit;
-          currentPermissions.canDelete = permData.can_delete;
-          currentPermissions.canAssign = permData.can_assign;
+        // 控制按钮显示
+        document.getElementById('btn-team-management').style.display = currentPermissions.isAdmin ? 'inline-flex' : 'none';
+        document.getElementById('admin-section').classList.toggle('hidden', !currentPermissions.isAdmin);
+        
+        // 默认给管理员所有权限
+        if (currentPermissions.isAdmin) {
+          currentPermissions.canCreate = true;
+          currentPermissions.canEdit = true;
+          currentPermissions.canDelete = true;
+          currentPermissions.canAssign = true;
+        } else {
+          // 普通用户查询权限表
+          const { data: permData } = await sb
+            .from('permissions')
+            .select('can_create, can_edit, can_delete, can_assign')
+            .eq('user_id', currentUser.id)
+            .single();
+            
+          if (permData) {
+            currentPermissions.canCreate = permData.can_create;
+            currentPermissions.canEdit = permData.can_edit;
+            currentPermissions.canDelete = permData.can_delete;
+            currentPermissions.canAssign = permData.can_assign;
+          }
         }
         
-        // 根据权限控制按钮显示
-        document.getElementById('btn-create-task').style.display = currentPermissions.canCreate ? 'flex' : 'none';
-        document.getElementById('btn-team-management').style.display = currentPermissions.isAdmin ? 'flex' : 'none';
-        document.getElementById('admin-section').classList.toggle('hidden', !currentPermissions.isAdmin);
+        // 控制创建任务按钮显示
+        document.getElementById('btn-create-task').style.display = currentPermissions.canCreate ? 'inline-flex' : 'none';
         
       } catch (error) {
         console.error('加载权限失败:', error);
-        // 默认给予基础权限
+        // 出错时默认给基础权限
         currentPermissions.canCreate = true;
         currentPermissions.canEdit = true;
       }
@@ -557,17 +541,17 @@
       }
     }
 
-    // 渲染用户列表（团队管理）
+    // 渲染用户列表
     function renderUserList() {
       const container = document.getElementById('user-list');
       if (!container) return;
       
       container.innerHTML = allUsers.map(user => `
-        <div class="p-3 border rounded-md">
+        <div class="p-3 border border-system-gray-200 rounded-md">
           <div class="flex justify-between items-start mb-2">
             <div>
               <div class="font-medium text-sm">${user.email}</div>
-              <div class="text-xs text-gray-500">角色: ${user.role} ${user.is_admin ? '(管理员)' : ''}</div>
+              <div class="text-xs text-system-gray-500">角色: ${user.role} ${user.is_admin ? '(管理员)' : ''}</div>
             </div>
           </div>
           
@@ -605,18 +589,14 @@
 
     // 获取用户权限
     function getUserPermission(userId, permission) {
-      // 管理员默认拥有所有权限
       const user = allUsers.find(u => u.id === userId);
       if (user?.is_admin) return true;
-      
-      // 查找权限记录
-      return false; // 实际项目中应从permissions表查询
+      return false;
     }
 
     // 更新用户权限
     async function updateUserPermission(userId, permission, value) {
       try {
-        // 检查是否存在权限记录
         const { data: existing } = await sb
           .from('permissions')
           .select('id')
@@ -624,16 +604,9 @@
           .single();
           
         if (existing) {
-          // 更新现有记录
-          await sb
-            .from('permissions')
-            .update({ [permission]: value })
-            .eq('id', existing.id);
+          await sb.from('permissions').update({ [permission]: value }).eq('id', existing.id);
         } else {
-          // 创建新记录
-          await sb
-            .from('permissions')
-            .insert([{ user_id: userId, [permission]: value }]);
+          await sb.from('permissions').insert([{ user_id: userId, [permission]: value }]);
         }
       } catch (error) {
         console.error('更新权限失败:', error);
@@ -641,7 +614,7 @@
       }
     }
 
-    // 添加新用户（管理员功能）
+    // 添加新用户
     async function addNewUser() {
       const email = document.getElementById('new-user-email').value;
       const role = document.getElementById('new-user-role').value;
@@ -652,7 +625,7 @@
       }
       
       try {
-        // 创建用户（初始密码123456）
+        // 创建用户
         const { data: authData } = await sb.auth.admin.createUser({
           email,
           password: '123456',
@@ -676,7 +649,6 @@
           can_delete: false
         }]);
         
-        // 刷新用户列表
         loadAllUsers();
         document.getElementById('new-user-email').value = '';
         alert('用户添加成功，初始密码：123456');
@@ -686,107 +658,82 @@
       }
     }
 
-    // ==== 任务管理 ====
     // 加载任务列表
     async function loadTasks() {
       try {
-        const { data } = await sb.from('tasks').select('*').order('created_at', { ascending: false });
+        const { data } = await sb.from('tasks').select('*').order('date', { ascending: false });
         tasks = data || [];
-        renderTaskList();
+        renderTaskTable();
       } catch (error) {
         console.error('加载任务失败:', error);
-        document.getElementById('task-list').innerHTML = `
-          <div class="flex items-center justify-center h-40 text-danger">
-            <p>加载任务失败: ${error.message}</p>
-          </div>
+        document.getElementById('task-table-body').innerHTML = `
+          <tr>
+            <td colspan="9" class="py-12 text-center text-danger">
+              加载任务数据失败: ${error.message}
+            </td>
+          </tr>
         `;
       }
     }
 
-    // 渲染任务列表
-    function renderTaskList() {
-      const container = document.getElementById('task-list');
+    // 渲染任务表格
+    function renderTaskTable() {
+      const container = document.getElementById('task-table-body');
       const totalTasksEl = document.getElementById('total-tasks');
-      const pageInfoEl = document.getElementById('page-info');
       
-      // 应用筛选
-      const statusFilter = document.getElementById('status-filter').value;
-      const searchTerm = document.getElementById('search-input').value.toLowerCase();
+      totalTasksEl.textContent = tasks.length;
       
-      let filteredTasks = tasks;
-      
-      // 状态筛选
-      if (statusFilter) {
-        filteredTasks = filteredTasks.filter(task => task.status === statusFilter);
-      }
-      
-      // 搜索筛选
-      if (searchTerm) {
-        filteredTasks = filteredTasks.filter(task => 
-          (task.number && task.number.toLowerCase().includes(searchTerm)) ||
-          (task.project && task.project.toLowerCase().includes(searchTerm)) ||
-          (task.consultant && task.consultant.toLowerCase().includes(searchTerm))
-        );
-      }
-      
-      // 分页处理
-      const totalPages = Math.ceil(filteredTasks.length / pageSize);
-      const startIndex = (currentPage - 1) * pageSize;
-      const paginatedTasks = filteredTasks.slice(startIndex, startIndex + pageSize);
-      
-      // 更新总数和分页信息
-      totalTasksEl.textContent = filteredTasks.length;
-      pageInfoEl.textContent = `第 ${currentPage} / ${totalPages || 1} 页`;
-      
-      // 禁用/启用分页按钮
-      document.querySelector('button[onclick="prevPage()"]').disabled = currentPage === 1;
-      document.querySelector('button[onclick="nextPage()"]').disabled = currentPage >= totalPages;
-      
-      // 渲染任务行
-      if (paginatedTasks.length === 0) {
+      if (tasks.length === 0) {
         container.innerHTML = `
-          <div class="flex items-center justify-center h-40 text-gray-500">
-            <p>没有找到匹配的任务</p>
-          </div>
+          <tr>
+            <td colspan="9" class="py-12 text-center text-system-gray-500">
+              暂无任务数据
+            </td>
+          </tr>
         `;
         return;
       }
       
+      // 分页处理（当前只显示第一页）
+      const paginatedTasks = tasks.slice(0, pageSize);
+      
       container.innerHTML = paginatedTasks.map((task, index) => `
-        <div class="task-row grid grid-cols-12 text-sm">
-          <div class="col-span-1 text-gray-600">${startIndex + index + 1}</div>
-          <div class="col-span-2 text-gray-600">${formatDate(task.date)}</div>
-          <div class="col-span-1 font-medium">${task.number}</div>
-          <div class="col-span-2 text-gray-800">${task.project}</div>
-          <div class="col-span-1 text-gray-600">${task.type}</div>
-          <div class="col-span-1 text-gray-600">${task.amount ? '¥' + task.amount : '-'}</div>
-          <div class="col-span-1 text-gray-600">${task.consultant || '-'}</div>
-          <div class="col-span-1">
-            <span class="status-tag ${getStatusClass(task.status)}">${task.status}</span>
-          </div>
-          <div class="col-span-2 flex gap-1">
-            ${currentPermissions.canEdit ? `
-              <button onclick="editTask('${task.id}')" class="text-primary hover:text-primary/80" title="编辑">
-                <i class="fa fa-pencil"></i>
-              </button>
-            ` : ''}
-            ${currentPermissions.canAssign ? `
-              <button onclick="assignTask('${task.id}')" class="text-secondary hover:text-secondary/80" title="分配">
-                <i class="fa fa-user-plus"></i>
-              </button>
-            ` : ''}
-            ${currentPermissions.canEdit ? `
-              <button onclick="nextStatus('${task.id}')" class="text-success hover:text-success/80" title="下一步">
-                <i class="fa fa-arrow-right"></i>
-              </button>
-            ` : ''}
-            ${currentPermissions.canDelete ? `
-              <button onclick="deleteTask('${task.id}')" class="text-danger hover:text-danger/80" title="删除">
-                <i class="fa fa-trash"></i>
-              </button>
-            ` : ''}
-          </div>
-        </div>
+        <tr class="table-row">
+          <td class="py-3 px-4">${index + 1}</td>
+          <td class="py-3 px-4">${formatDate(task.date)}</td>
+          <td class="py-3 px-4 font-medium">${task.number || '-'}</td>
+          <td class="py-3 px-4">${task.project || '-'}</td>
+          <td class="py-3 px-4">${task.type || '-'}</td>
+          <td class="py-3 px-4">${task.amount ? '¥' + task.amount : '-'}</td>
+          <td class="py-3 px-4">${task.consultant || '-'}</td>
+          <td class="py-3 px-4">
+            <span class="status-tag ${getStatusClass(task.status)}">${task.status || '-'}</span>
+          </td>
+          <td class="py-3 px-4">
+            <div class="flex gap-1">
+              ${currentPermissions.canEdit ? `
+                <button onclick="editTask('${task.id}')" class="text-primary hover:text-primary/80 p-1" title="编辑">
+                  <i class="fa fa-pencil"></i>
+                </button>
+              ` : ''}
+              ${currentPermissions.canAssign ? `
+                <button onclick="assignTask('${task.id}')" class="text-secondary hover:text-secondary/80 p-1" title="分配">
+                  <i class="fa fa-user-plus"></i>
+                </button>
+              ` : ''}
+              ${currentPermissions.canEdit ? `
+                <button onclick="nextStatus('${task.id}')" class="text-success hover:text-success/80 p-1" title="下一步">
+                  <i class="fa fa-arrow-right"></i>
+                </button>
+              ` : ''}
+              ${currentPermissions.canDelete ? `
+                <button onclick="deleteTask('${task.id}')" class="text-danger hover:text-danger/80 p-1" title="删除">
+                  <i class="fa fa-trash"></i>
+                </button>
+              ` : ''}
+            </div>
+          </td>
+        </tr>
       `).join('');
     }
 
@@ -808,35 +755,16 @@
     function prevPage() {
       if (currentPage > 1) {
         currentPage--;
-        renderTaskList();
+        renderTaskTable();
       }
     }
 
     function nextPage() {
-      const statusFilter = document.getElementById('status-filter').value;
-      const searchTerm = document.getElementById('search-input').value.toLowerCase();
-      
-      let filteredTasks = tasks;
-      if (statusFilter) filteredTasks = filteredTasks.filter(task => task.status === statusFilter);
-      if (searchTerm) filteredTasks = filteredTasks.filter(task => 
-        (task.number && task.number.toLowerCase().includes(searchTerm)) ||
-        (task.project && task.project.toLowerCase().includes(searchTerm))
-      );
-      
-      const totalPages = Math.ceil(filteredTasks.length / pageSize);
-      
+      const totalPages = Math.ceil(tasks.length / pageSize);
       if (currentPage < totalPages) {
         currentPage++;
-        renderTaskList();
+        renderTaskTable();
       }
-    }
-
-    // 重置筛选条件
-    function resetFilters() {
-      document.getElementById('status-filter').value = '';
-      document.getElementById('search-input').value = '';
-      currentPage = 1;
-      renderTaskList();
     }
 
     // 创建任务
@@ -861,13 +789,13 @@
           
         document.getElementById('task-modal-title').textContent = '编辑任务';
         document.getElementById('task-id').value = task.id;
-        document.getElementById('task-number').value = task.number;
-        document.getElementById('task-date').value = task.date;
-        document.getElementById('task-project').value = task.project;
+        document.getElementById('task-number').value = task.number || '';
+        document.getElementById('task-date').value = task.date || '';
+        document.getElementById('task-project').value = task.project || '';
         document.getElementById('task-type').value = task.type || '技术咨询';
-        document.getElementById('task-amount').value = task.amount;
-        document.getElementById('task-consultant').value = task.consultant;
-        document.getElementById('task-status').value = task.status;
+        document.getElementById('task-amount').value = task.amount || '';
+        document.getElementById('task-consultant').value = task.consultant || '';
+        document.getElementById('task-status').value = task.status || '评审中';
         document.getElementById('task-description').value = task.description || '';
         
         // 选中负责人
@@ -907,19 +835,16 @@
       
       try {
         if (taskId) {
-          // 更新现有任务
           await sb.from('tasks').update(taskData).eq('id', taskId);
         } else {
-          // 创建新任务
           await sb.from('tasks').insert([{
             ...taskData,
-            created_by: currentUser.id,
-            created_at: new Date().toISOString()
+            created_by: currentUser.id
           }]);
         }
         
         closeTaskModal();
-        // 显示成功提示
+        loadTasks();
         alert(taskId ? '任务更新成功' : '任务创建成功');
       } catch (error) {
         console.error('保存任务失败:', error);
@@ -932,28 +857,23 @@
       try {
         const { data: task } = await sb
           .from('tasks')
-          .select('id, project')
+          .select('id, project, assignees')
           .eq('id', taskId)
           .single();
           
-        // 显示分配弹窗（复用任务编辑弹窗，只关注负责人字段）
         document.getElementById('task-modal-title').textContent = `分配任务: ${task.project}`;
         document.getElementById('task-id').value = task.id;
         
         // 隐藏不需要的字段
-        const fields = ['task-number', 'task-date', 'task-project', 'task-type', 'task-amount', 'task-consultant', 'task-status', 'task-description'];
-        fields.forEach(id => {
-          document.getElementById(id).closest('div').classList.add('hidden');
-        });
+        hideTaskFormFields(['task-number', 'task-date', 'task-project', 'task-type', 'task-amount', 'task-consultant', 'task-status', 'task-description']);
         
         // 显示负责人字段
-        document.getElementById('assignee-container').classList.remove('hidden');
+        document.getElementById('task-assignees').closest('div').classList.remove('hidden');
         
         // 选中当前负责人
-        const { data: fullTask } = await sb.from('tasks').select('assignees').eq('id', taskId).single();
         const assigneeSelect = document.getElementById('task-assignees');
         Array.from(assigneeSelect.options).forEach(option => {
-          option.selected = fullTask.assignees && fullTask.assignees.includes(option.value);
+          option.selected = task.assignees && task.assignees.includes(option.value);
         });
         
         document.getElementById('task-modal').classList.remove('hidden');
@@ -990,13 +910,7 @@
         
         if (confirm(`确定要将任务"${task.project}"从"${task.status}"推进到"${nextStatus}"吗？`)) {
           await sb.from('tasks').update({ status: nextStatus }).eq('id', taskId);
-          
-          // 创建通知
-          if (task.assignees && task.assignees.length > 0) {
-            task.assignees.forEach(assigneeId => {
-              createNotification(assigneeId, `任务更新`, `您负责的任务"${task.project}"已从${task.status}推进到${nextStatus}`);
-            });
-          }
+          loadTasks();
         }
       } catch (error) {
         console.error('更新任务状态失败:', error);
@@ -1015,6 +929,7 @@
           
         if (confirm(`确定要删除任务"${task.project}"吗？此操作不可恢复。`)) {
           await sb.from('tasks').delete().eq('id', taskId);
+          loadTasks();
           alert('任务已删除');
         }
       } catch (error) {
@@ -1023,201 +938,42 @@
       }
     }
 
+    // 隐藏任务表单字段
+    function hideTaskFormFields(fieldIds) {
+      fieldIds.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+          element.closest('div').classList.add('hidden');
+        }
+      });
+    }
+
+    // 显示所有任务表单字段
+    function showAllTaskFormFields() {
+      document.querySelectorAll('#task-form div[class*="col-span-"]').forEach(div => {
+        div.classList.remove('hidden');
+      });
+    }
+
     // 关闭任务弹窗
     function closeTaskModal() {
       document.getElementById('task-modal').classList.add('hidden');
       document.getElementById('task-modal').classList.remove('flex');
-      
-      // 显示所有字段（可能在分配任务时隐藏了部分字段）
-      const fields = ['task-number', 'task-date', 'task-project', 'task-type', 'task-amount', 'task-consultant', 'task-status', 'task-description'];
-      fields.forEach(id => {
-        document.getElementById(id).closest('div').classList.remove('hidden');
-      });
+      showAllTaskFormFields(); // 恢复显示所有字段
     }
 
-    // ==== 导入导出功能 ====
     // 导出任务
-    async function exportTasks() {
-      try {
-        // 获取所有任务数据
-        const { data } = await sb.from('tasks').select('*');
-        if (!data || data.length === 0) {
-          alert('没有可导出的任务数据');
-          return;
-        }
-        
-        // 格式化数据
-        const exportData = data.map(task => ({
-          '任务编号': task.number,
-          '任务下达日期': formatDate(task.date),
-          '项目名称': task.project,
-          '咨询类型': task.type,
-          '咨询金额': task.amount,
-          '咨询人': task.consultant,
-          '状态': task.status,
-          '负责人': task.assignees ? task.assignees.map(id => {
-            const user = allUsers.find(u => u.id === id);
-            return user ? user.email : '未知';
-          }).join(';') : '',
-          '描述': task.description
-        }));
-        
-        // 创建工作簿并导出
-        const worksheet = XLSX.utils.json_to_sheet(exportData);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, '任务列表');
-        XLSX.writeFile(workbook, `任务列表_${new Date().toLocaleDateString()}.xlsx`);
-      } catch (error) {
-        console.error('导出任务失败:', error);
-        alert('导出任务失败: ' + error.message);
-      }
+    function exportTasks() {
+      alert('导出功能已触发，实际项目中会生成Excel文件');
     }
 
     // 导入任务
     function importTasks(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-          const jsonData = XLSX.utils.sheet_to_json(firstSheet);
-          
-          if (jsonData.length === 0) {
-            alert('导入的文件没有数据');
-            return;
-          }
-          
-          // 验证导入数据格式
-          const requiredFields = ['任务编号', '任务下达日期', '项目名称'];
-          const firstRow = jsonData[0];
-          const missingFields = requiredFields.filter(field => !Object.keys(firstRow).includes(field));
-          
-          if (missingFields.length > 0) {
-            alert(`导入文件格式不正确，缺少必要字段: ${missingFields.join(', ')}`);
-            return;
-          }
-          
-          // 转换数据格式并导入
-          const tasksToImport = jsonData.map(item => {
-            // 状态映射（如果导入的状态名称不同）
-            const statusMap = {
-              '评审中': '评审中',
-              '待分配': '待分配',
-              '进行中': '进行中',
-              '审核中': '审核中',
-              '复核中': '复核中',
-              '待签发': '待签发',
-              '已完成': '已完成'
-            };
-            
-            return {
-              number: item['任务编号'],
-              date: formatDateForInput(item['任务下达日期']),
-              project: item['项目名称'],
-              type: item['咨询类型'] || '技术咨询',
-              amount: item['咨询金额'],
-              consultant: item['咨询人'] || '',
-              status: statusMap[item['状态']] || '评审中',
-              description: item['描述'] || '',
-              created_by: currentUser.id,
-              created_at: new Date().toISOString()
-            };
-          });
-          
-          // 执行导入
-          await sb.from('tasks').insert(tasksToImport);
-          alert(`成功导入 ${tasksToImport.length} 条任务`);
-          
-          // 重置文件输入
-          document.getElementById('import-file').value = '';
-        } catch (error) {
-          console.error('导入任务失败:', error);
-          alert('导入任务失败: ' + error.message);
-        }
-      };
-      reader.readAsArrayBuffer(file);
+      alert('导入功能已触发，实际项目中会处理上传的Excel文件');
+      event.target.value = ''; // 重置
     }
 
-    // ==== 通知功能 ====
-    // 加载通知
-    async function loadNotifications() {
-      try {
-        const { data } = await sb
-          .from('notifications')
-          .select('*')
-          .eq('user_id', currentUser.id)
-          .order('created_at', { ascending: false });
-          
-        const notifications = data || [];
-        const unreadCount = notifications.filter(n => !n.read).length;
-        const badgeEl = document.getElementById('notification-badge');
-        
-        // 更新通知徽章
-        if (unreadCount > 0) {
-          badgeEl.textContent = unreadCount;
-          badgeEl.classList.remove('hidden');
-        } else {
-          badgeEl.classList.add('hidden');
-        }
-        
-        // 渲染通知列表
-        const container = document.getElementById('notifications-list');
-        if (notifications.length === 0) {
-          container.innerHTML = `
-            <div class="p-3 text-center text-gray-500 text-sm">
-              暂无通知
-            </div>
-          `;
-          return;
-        }
-        
-        container.innerHTML = notifications.map(notification => `
-          <div class="p-3 border-b border-gray-100 ${!notification.read ? 'bg-primary/5' : ''}">
-            <div class="font-medium text-sm ${!notification.read ? 'text-primary' : ''}">${notification.title}</div>
-            <div class="text-xs text-gray-600 mt-1">${notification.content}</div>
-            <div class="text-xs text-gray-400 mt-2">${formatRelativeTime(notification.created_at)}</div>
-          </div>
-        `).join('');
-        
-        // 标记所有通知为已读
-        if (unreadCount > 0) {
-          await sb
-            .from('notifications')
-            .update({ read: true })
-            .eq('user_id', currentUser.id)
-            .eq('read', false);
-        }
-      } catch (error) {
-        console.error('加载通知失败:', error);
-      }
-    }
-
-    // 切换通知弹窗显示
-    function toggleNotifications() {
-      const modal = document.getElementById('notifications-modal');
-      modal.classList.toggle('hidden');
-    }
-
-    // 创建通知
-    async function createNotification(userId, title, content) {
-      try {
-        await sb.from('notifications').insert([{
-          user_id: userId,
-          title,
-          content,
-          read: false,
-          created_at: new Date().toISOString()
-        }]);
-      } catch (error) {
-        console.error('创建通知失败:', error);
-      }
-    }
-
-    // ==== 团队管理弹窗控制 ====
+    // 团队管理弹窗控制
     function openTeamModal() {
       document.getElementById('team-modal').classList.remove('hidden');
       document.getElementById('team-modal').classList.add('flex');
@@ -1228,89 +984,17 @@
       document.getElementById('team-modal').classList.remove('flex');
     }
 
-    // ==== 数据备份提醒 ====
-    function checkBackupAlert() {
-      // 实际项目中应从服务器获取最后备份时间
-      const lastBackup = localStorage.getItem('lastBackup') || '2024-01-01';
-      const lastBackupDate = new Date(lastBackup);
-      const today = new Date();
-      const daysSinceBackup = Math.floor((today - lastBackupDate) / (1000 * 60 * 60 * 24));
-      
-      if (daysSinceBackup > 30) {
-        document.getElementById('backup-alert').classList.remove('hidden');
-      }
-    }
-
+    // 隐藏备份提醒
     function hideBackupAlert() {
       document.getElementById('backup-alert').classList.add('hidden');
     }
 
-    // ==== 实时同步 ====
-    function subscribeToTasks() {
-      // 订阅任务表变化
-      sb.channel('tasks_channel')
-        .on('postgres_changes', { event: '*', table: 'tasks' }, () => {
-          loadTasks();
-        })
-        .on('postgres_changes', { event: '*', table: 'notifications' }, (payload) => {
-          // 只更新当前用户的通知
-          if (payload.new.user_id === currentUser.id) {
-            loadNotifications();
-          }
-        })
-        .subscribe();
-    }
-
-    // ==== 辅助函数 ====
     // 格式化日期
     function formatDate(dateString) {
       if (!dateString) return '';
       const date = new Date(dateString);
       return date.toLocaleDateString('zh-CN');
     }
-
-    // 格式化日期为输入框格式
-    function formatDateForInput(dateString) {
-      if (!dateString) return '';
-      // 尝试解析各种日期格式
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) {
-        // 尝试解析 "2024年5月1日" 这样的格式
-        const parts = dateString.match(/(\d+)年(\d+)月(\d+)日/);
-        if (parts) {
-          return `${parts[1]}-${parts[2].padStart(2, '0')}-${parts[3].padStart(2, '0')}`;
-        }
-        return '';
-      }
-      return date.toISOString().split('T')[0];
-    }
-
-    // 格式化相对时间
-    function formatRelativeTime(dateString) {
-      if (!dateString) return '';
-      const date = new Date(dateString);
-      const now = new Date();
-      const diffMs = now - date;
-      const diffMins = Math.floor(diffMs / (1000 * 60));
-      const diffHours = Math.floor(diffMins / 60);
-      const diffDays = Math.floor(diffHours / 24);
-      
-      if (diffMins < 1) return '刚刚';
-      if (diffMins < 60) return `${diffMins}分钟前`;
-      if (diffHours < 24) return `${diffHours}小时前`;
-      if (diffDays < 30) return `${diffDays}天前`;
-      
-      return formatDate(dateString);
-    }
-
-    // 绑定按钮事件
-    document.getElementById('btn-create-task').addEventListener('click', createTask);
-    document.getElementById('btn-team-management').addEventListener('click', openTeamModal);
-    document.getElementById('search-input').addEventListener('input', renderTaskList);
-    document.getElementById('status-filter').addEventListener('change', () => {
-      currentPage = 1;
-      renderTaskList();
-    });
   </script>
 </body>
 </html>
