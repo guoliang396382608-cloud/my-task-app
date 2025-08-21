@@ -1,484 +1,833 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>咨询任务管理系统 (在线协作版)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
-        #root:empty::before { content: "正在加载应用..."; display: flex; justify-content: center; align-items: center; height: 100vh; font-size: 1.5rem; color: #6b7280; }
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f5f9; }
-        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
-        .dark ::-webkit-scrollbar-track { background: #1e293b; }
-        .dark ::-webkit-scrollbar-thumb { background: #475569; }
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: flex; justify-content: center; align-items: center;
-            z-index: 50;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>多人协作任务管理系统</title>
+  <!-- 外部资源 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Tailwind配置 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#3B82F6',
+            secondary: '#10B981',
+            warning: '#F59E0B',
+            danger: '#EF4444',
+            dark: '#1F2937',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .task-card {
+        @apply bg-white rounded-lg shadow p-4 mb-3 hover:shadow-md transition-shadow;
+      }
+      .status-badge {
+        @apply px-2 py-1 rounded-full text-xs font-medium;
+      }
+      .btn {
+        @apply px-3 py-1 rounded text-sm font-medium cursor-pointer transition-colors;
+      }
+      .btn-primary {
+        @apply bg-primary text-white hover:bg-primary/90;
+      }
+      .btn-danger {
+        @apply bg-danger text-white hover:bg-danger/90;
+      }
+      .btn-secondary {
+        @apply bg-gray-200 text-gray-800 hover:bg-gray-300;
+      }
+    }
+  </style>
 </head>
-<body class="bg-slate-50 dark:bg-slate-900">
-    <div id="root"></div>
+<body class="bg-gray-50 min-h-screen">
+  <div id="app" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <!-- 登录/注册页面 -->
+    <div id="auth-pages" class="max-w-md mx-auto mt-10">
+      <!-- 登录表单 -->
+      <div id="login-form" class="bg-white p-6 rounded-lg shadow">
+        <h2 class="text-2xl font-bold mb-6 text-center">登录系统</h2>
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2">邮箱</label>
+          <input type="email" id="login-email" class="w-full px-3 py-2 border border-gray-300 rounded" placeholder="请输入邮箱">
+        </div>
+        <div class="mb-6">
+          <label class="block text-gray-700 mb-2">密码</label>
+          <input type="password" id="login-password" class="w-full px-3 py-2 border border-gray-300 rounded" placeholder="请输入密码">
+        </div>
+        <button onclick="handleLogin()" class="w-full btn btn-primary">登录</button>
+      </div>
+    </div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useMemo, useRef, useCallback } = React;
+    <!-- 主应用界面（默认隐藏） -->
+    <div id="main-app" class="hidden">
+      <!-- 顶部导航 -->
+      <header class="mb-6 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-dark">任务管理系统</h1>
+        <div class="flex items-center gap-4">
+          <div class="relative">
+            <button id="notification-btn" class="btn btn-secondary">
+              <i class="fa fa-bell-o"></i>
+              <span id="notification-badge" class="absolute -top-1 -right-1 bg-danger text-white text-xs rounded-full w-5 h-5 flex items-center justify-center hidden">0</span>
+            </button>
+          </div>
+          <div id="user-info" class="flex items-center gap-2">
+            <span id="user-email"></span>
+            <button onclick="handleLogout()" class="btn btn-secondary">退出</button>
+          </div>
+        </div>
+      </header>
+
+      <!-- 功能按钮区 -->
+      <div class="flex flex-wrap gap-3 mb-6">
+        <button id="create-task-btn" onclick="showCreateTaskModal()" class="btn btn-primary hidden">
+          <i class="fa fa-plus mr-1"></i> 创建任务
+        </button>
+        <button id="team-management-btn" onclick="showTeamManagement()" class="btn btn-secondary hidden">
+          <i class="fa fa-users mr-1"></i> 团队管理
+        </button>
+        <button onclick="exportTasks()" class="btn btn-secondary">
+          <i class="fa fa-download mr-1"></i> 导出任务
+        </button>
+        <label class="btn btn-secondary cursor-pointer">
+          <i class="fa fa-upload mr-1"></i> 导入任务
+          <input type="file" id="import-file" accept=".csv" class="hidden" onchange="importTasks(event)">
+        </label>
+        <a href="task-template.csv" download class="btn btn-secondary">
+          <i class="fa fa-file-text-o mr-1"></i> 下载模板
+        </a>
+      </div>
+
+      <!-- 任务状态视图区 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- 评审中 -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+          <div class="bg-primary/10 px-4 py-3 border-b">
+            <h2 class="font-bold flex items-center">
+              评审中 <span class="ml-2 status-badge bg-primary/20 text-primary" id="count-reviewing">0</span>
+            </h2>
+          </div>
+          <div id="tasks-reviewing" class="p-3 max-h-[500px] overflow-y-auto"></div>
+        </div>
+
+        <!-- 待分配 -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+          <div class="bg-warning/10 px-4 py-3 border-b">
+            <h2 class="font-bold flex items-center">
+              待分配 <span class="ml-2 status-badge bg-warning/20 text-warning" id="count-to-assign">0</span>
+            </h2>
+          </div>
+          <div id="tasks-to-assign" class="p-3 max-h-[500px] overflow-y-auto"></div>
+        </div>
+
+        <!-- 进行中 -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+          <div class="bg-blue-100 px-4 py-3 border-b">
+            <h2 class="font-bold flex items-center">
+              进行中 <span class="ml-2 status-badge bg-blue-200 text-blue-800" id="count-in-progress">0</span>
+            </h2>
+          </div>
+          <div id="tasks-in-progress" class="p-3 max-h-[500px] overflow-y-auto"></div>
+        </div>
+
+        <!-- 审核中 -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+          <div class="bg-purple-100 px-4 py-3 border-b">
+            <h2 class="font-bold flex items-center">
+              审核中 <span class="ml-2 status-badge bg-purple-200 text-purple-800" id="count-reviewing-2">0</span>
+            </h2>
+          </div>
+          <div id="tasks-reviewing-2" class="p-3 max-h-[500px] overflow-y-auto"></div>
+        </div>
+
+        <!-- 复核中 -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+          <div class="bg-indigo-100 px-4 py-3 border-b">
+            <h2 class="font-bold flex items-center">
+              复核中 <span class="ml-2 status-badge bg-indigo-200 text-indigo-800" id="count-rechecking">0</span>
+            </h2>
+          </div>
+          <div id="tasks-rechecking" class="p-3 max-h-[500px] overflow-y-auto"></div>
+        </div>
+
+        <!-- 待签发 -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+          <div class="bg-teal-100 px-4 py-3 border-b">
+            <h2 class="font-bold flex items-center">
+              待签发 <span class="ml-2 status-badge bg-teal-200 text-teal-800" id="count-to-sign">0</span>
+            </h2>
+          </div>
+          <div id="tasks-to-sign" class="p-3 max-h-[500px] overflow-y-auto"></div>
+        </div>
+
+        <!-- 已完成 -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+          <div class="bg-secondary/10 px-4 py-3 border-b">
+            <h2 class="font-bold flex items-center">
+              已完成 <span class="ml-2 status-badge bg-secondary/20 text-secondary" id="count-completed">0</span>
+            </h2>
+          </div>
+          <div id="tasks-completed" class="p-3 max-h-[500px] overflow-y-auto"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 创建任务弹窗 -->
+    <div id="create-task-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+      <div class="bg-white rounded-lg shadow w-full max-w-md p-6">
+        <h3 class="text-xl font-bold mb-4">创建任务</h3>
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2">任务标题</label>
+          <input type="text" id="task-title" class="w-full px-3 py-2 border border-gray-300 rounded" placeholder="请输入任务标题">
+        </div>
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2">任务描述</label>
+          <textarea id="task-description" class="w-full px-3 py-2 border border-gray-300 rounded" rows="3" placeholder="请输入任务描述"></textarea>
+        </div>
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2">截止日期</label>
+          <input type="date" id="task-due-date" class="w-full px-3 py-2 border border-gray-300 rounded">
+        </div>
+        <div class="flex justify-end gap-2 mt-6">
+          <button onclick="hideCreateTaskModal()" class="btn btn-secondary">取消</button>
+          <button onclick="saveTask()" class="btn btn-primary">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 团队管理弹窗 -->
+    <div id="team-management-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+      <div class="bg-white rounded-lg shadow w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+          <h3 class="text-xl font-bold">团队管理</h3>
+          <button onclick="hideTeamManagement()" class="btn btn-secondary">关闭</button>
+        </div>
+
+        <!-- 管理员功能区 -->
+        <div id="admin-section" class="mb-8 hidden">
+          <h4 class="font-bold mb-3">添加新用户</h4>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-gray-700 mb-1 text-sm">邮箱</label>
+              <input type="email" id="new-user-email" class="w-full px-3 py-2 border border-gray-300 rounded text-sm" placeholder="用户邮箱">
+            </div>
+            <div>
+              <label class="block text-gray-700 mb-1 text-sm">角色</label>
+              <select id="new-user-role" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                <option value="经理">经理</option>
+                <option value="前台客服">前台客服</option>
+                <option value="部门负责人">部门负责人</option>
+                <option value="项目负责人">项目负责人</option>
+                <option value="审核人">审核人</option>
+                <option value="复核人">复核人</option>
+                <option value="办公室">办公室</option>
+              </select>
+            </div>
+            <div class="flex items-end">
+              <button onclick="addUser()" class="w-full btn btn-primary">添加用户</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 用户列表 -->
+        <div>
+          <h4 class="font-bold mb-3">用户列表</h4>
+          <div id="user-list" class="space-y-4"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 任务操作弹窗 -->
+    <div id="task-action-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+      <div class="bg-white rounded-lg shadow w-full max-w-md p-6">
+        <h3 class="text-xl font-bold mb-4" id="task-action-title">任务操作</h3>
+        <div id="task-action-content" class="mb-6"></div>
+        <div class="flex justify-end gap-2">
+          <button onclick="hideTaskActionModal()" class="btn btn-secondary">取消</button>
+          <button id="task-action-confirm" onclick="confirmTaskAction()" class="btn btn-primary">确认</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==== 配置Supabase（请替换为你的项目信息） ====
+    const supabaseUrl = "YOUR_SUPABASE_URL"; // 你的Supabase项目URL
+    const supabaseKey = "YOUR_SUPABASE_KEY"; // 你的Supabase anon key
+    const sb = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+    // 全局变量
+    let currentUser = null;
+    let currentPermissions = null;
+    let currentTaskId = null;
+    let currentAction = null;
+
+    // 页面加载时初始化
+    document.addEventListener('DOMContentLoaded', async () => {
+      // 检查登录状态
+      const { data } = await sb.auth.getSession();
+      if (data.session) {
+        currentUser = data.session.user;
+        await initApp();
+      } else {
+        // 显示登录页面
+        document.getElementById('auth-pages').classList.remove('hidden');
+        document.getElementById('main-app').classList.add('hidden');
+      }
+
+      // 监听登录状态变化
+      sb.auth.onAuthStateChange((_event, session) => {
+        if (session) {
+          currentUser = session.user;
+          initApp();
+        } else {
+          currentUser = null;
+          document.getElementById('auth-pages').classList.remove('hidden');
+          document.getElementById('main-app').classList.add('hidden');
+        }
+      });
+    });
+
+    // 初始化应用
+    async function initApp() {
+      // 显示主应用
+      document.getElementById('auth-pages').classList.add('hidden');
+      document.getElementById('main-app').classList.remove('hidden');
+      
+      // 显示用户信息
+      document.getElementById('user-email').textContent = currentUser.email;
+      
+      // 加载用户权限
+      await loadUserPermissions();
+      
+      // 加载用户列表（供团队管理和任务分配）
+      await loadAllUsers();
+      
+      // 加载任务
+      await loadTasks();
+      
+      // 订阅任务变化（实时同步）
+      subscribeToTasks();
+    }
+
+    // 加载用户权限
+    async function loadUserPermissions() {
+      const { data } = await sb
+        .from('permissions')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .single();
+      
+      currentPermissions = data || {
+        can_create: false,
+        can_assign: false,
+        can_edit: false,
+        can_delete: false,
+        visible_statuses: []
+      };
+
+      // 显示/隐藏功能按钮
+      document.getElementById('create-task-btn').style.display = currentPermissions.can_create ? 'inline-flex' : 'none';
+      
+      // 检查是否为系统管理员
+      const { data: userData } = await sb
+        .from('users')
+        .select('is_admin')
+        .eq('id', currentUser.id)
+        .single();
+      
+      if (userData.is_admin) {
+        document.getElementById('team-management-btn').style.display = 'inline-flex';
+        document.getElementById('admin-section').classList.remove('hidden');
+      }
+    }
+
+    // 加载所有用户
+    async function loadAllUsers() {
+      const { data } = await sb.from('users').select('*');
+      window.allUsers = data || [];
+      
+      // 更新团队管理页面的用户列表
+      renderUserList();
+    }
+
+    // 渲染用户列表
+    function renderUserList() {
+      const userListEl = document.getElementById('user-list');
+      if (!userListEl) return;
+      
+      userListEl.innerHTML = window.allUsers.map(user => `
+        <div class="p-3 border rounded-lg flex flex-wrap justify-between items-center">
+          <div>
+            <div class="font-medium">${user.email}</div>
+            <div class="text-sm text-gray-600">角色：${user.role} ${user.is_admin ? '<span class="text-primary">(系统管理者)</span>' : ''}</div>
+          </div>
+          ${currentUser.id === user.id || !window.currentUserIsAdmin ? '' : `
+            <div class="flex gap-2 mt-2 sm:mt-0">
+              <button onclick="editUserPermissions('${user.id}')" class="btn btn-secondary text-xs">权限</button>
+            </div>
+          `}
+        </div>
+      `).join('');
+    }
+
+    // 加载任务
+    async function loadTasks() {
+      // 获取可见的任务状态
+      const visibleStatuses = currentPermissions.visible_statuses || [
+        '评审中', '待分配', '进行中', '审核中', '复核中', '待签发', '已完成'
+      ];
+      
+      // 获取所有可见状态的任务
+      const { data } = await sb
+        .from('tasks')
+        .select('*')
+        .in('status', visibleStatuses);
+      
+      const tasks = data || [];
+      
+      // 按状态分组并渲染
+      const statuses = [
+        '评审中', '待分配', '进行中', '审核中', '复核中', '待签发', '已完成'
+      ];
+      
+      statuses.forEach(status => {
+        const tasksOfStatus = tasks.filter(task => task.status === status);
+        const countEl = document.getElementById(`count-${getStatusId(status)}`);
+        const listEl = document.getElementById(`tasks-${getStatusId(status)}`);
         
-        const supabaseUrl = 'https://gpcsknsnwatqqcnywuiv.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwY3NrbnNud2F0cXFjbnl3dWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzNzc5MTMsImV4cCI6MjA2OTk1MzkxM30.M-02UaHW22nU0MLmRtiIIlcmb7tnceoisFIkTK05NCY';
-        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        if (countEl) countEl.textContent = tasksOfStatus.length;
+        if (listEl) listEl.innerHTML = renderTaskList(tasksOfStatus);
+      });
+      
+      // 更新通知
+      updateNotifications(tasks);
+    }
 
-        // --- 1. 辅助组件、常量和函数 ---
-        const Icon = ({ children, size = 20, ...props }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>{children}</svg>);
-        const MoreHorizontal = (props) => <Icon {...props}><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></Icon>;
-        const MessageSquare = (props) => <Icon {...props}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></Icon>;
-        const ArrowUpDown = (props) => <Icon {...props}><path d="m21 16-4 4-4-4m-12-8 4-4 4 4"/></Icon>;
-        const CheckCircle = (props) => <Icon {...props}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></Icon>;
-        const Archive = (props) => <Icon {...props}><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></Icon>;
-        const Plus = (props) => <Icon {...props}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></Icon>;
-        const Edit3 = (props) => <Icon {...props}><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></Icon>;
-        const Trash2 = (props) => <Icon {...props}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></Icon>;
+    // 渲染任务列表
+    function renderTaskList(tasks) {
+      if (tasks.length === 0) {
+        return '<div class="text-center text-gray-500 py-4">暂无任务</div>';
+      }
+      
+      return tasks.map(task => `
+        <div class="task-card">
+          <div class="font-medium mb-2">${task.title}</div>
+          <div class="text-sm text-gray-600 mb-3">${task.description || '无描述'}</div>
+          <div class="flex flex-wrap gap-2 text-xs text-gray-500 mb-3">
+            ${task.due_date ? `<div><i class="fa fa-calendar-o mr-1"></i> 截止：${formatDate(task.due_date)}</div>` : ''}
+            ${task.assignees && task.assignees.length > 0 ? `<div><i class="fa fa-user-o mr-1"></i> 负责人：${getAssigneesNames(task.assignees)}</div>` : ''}
+          </div>
+          <div class="flex flex-wrap gap-2">
+            ${currentPermissions.can_edit ? `<button onclick="showEditTask('${task.id}')" class="btn btn-secondary text-xs">编辑</button>` : ''}
+            ${currentPermissions.can_assign && task.status === '评审中' ? `<button onclick="showAssignTask('${task.id}')" class="btn btn-primary text-xs">分配</button>` : ''}
+            ${currentPermissions.can_edit ? `<button onclick="showSubmitTask('${task.id}', '${task.status}')" class="btn btn-primary text-xs">提交</button>` : ''}
+            ${currentPermissions.can_edit ? `<button onclick="showReturnTask('${task.id}', '${task.status}')" class="btn btn-secondary text-xs">退回</button>` : ''}
+            ${currentPermissions.can_delete ? `<button onclick="showDeleteTask('${task.id}')" class="btn btn-danger text-xs">删除</button>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
 
+    // 订阅任务变化（实时同步）
+    function subscribeToTasks() {
+      sb.channel('tasks-channel')
+        .on('postgres_changes', { event: '*', table: 'tasks' }, () => {
+          loadTasks(); // 任务变化时重新加载
+        })
+        .subscribe();
+    }
 
-        const GRID_COLS = {
-            INPROGRESS: "grid-cols-[auto_0.9fr_0.9fr_2.25fr_1.5fr_1.45fr_1.2fr_0.8fr_0.8fr_0.9fr_3.5fr_1fr_0.65fr_0.45fr]",
-            DONE: "grid-cols-[auto_0.9fr_0.9fr_2.25fr_1.5fr_1.45fr_1.2fr_0.8fr_0.8fr_0.9fr_0.9fr_3fr_0.8fr_0.65fr_0.45fr]",
-            VOID: "grid-cols-[auto_0.9fr_0.9fr_2.25fr_1.5fr_1.45fr_1.2fr_0.8fr_0.8fr_3.5fr_0.8fr_0.45fr]"
-        };
+    // 更新通知
+    function updateNotifications(tasks) {
+      // 筛选出当前用户需要处理的任务
+      const userTasks = tasks.filter(task => 
+        task.assignees && task.assignees.includes(currentUser.id)
+      );
+      
+      // 更新通知徽章
+      const badgeEl = document.getElementById('notification-badge');
+      if (userTasks.length > 0) {
+        badgeEl.textContent = userTasks.length;
+        badgeEl.classList.remove('hidden');
+      } else {
+        badgeEl.classList.add('hidden');
+      }
+      
+      // 检查超期任务
+      const overdueTasks = tasks.filter(task => 
+        task.due_date && new Date(task.due_date) < new Date() && task.status !== '已完成'
+      );
+      
+      if (overdueTasks.length > 0) {
+        alert(`有${overdueTasks.length}个任务已超期，请及时处理！`);
+      }
+    }
 
-        const formatDate = (dateStr) => { if (!dateStr) return ''; try { const d = new Date(dateStr); return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0]; } catch (e) { return ''; } };
-        const formatAmount = (amount) => { if (amount === null || amount === undefined || amount === '' || isNaN(Number(amount))) return 'N/A'; return `${Number(amount).toLocaleString('zh-CN')} 元`; };
-        const formatDuration = (totalDays) => { if (totalDays === null || isNaN(totalDays)) return { status: '-', time: ''}; if (totalDays === 0) return { status: '今天截止', time: '' }; const status = totalDays < 0 ? '已逾期' : '剩余'; const absDays = Math.abs(totalDays); return { status, time: `${absDays}天` }; };
-        
-        const ListHeader = ({ currentView, sortConfig, onRequestSort }) => {
-            if (!sortConfig) return null;
-            const gridColsClass = GRID_COLS[currentView.toUpperCase()] || GRID_COLS.INPROGRESS;
+    // ==== 登录/退出功能 ====
+    async function handleLogin() {
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      
+      if (error) {
+        alert('登录失败：' + error.message);
+      }
+    }
 
-            const SortableHeader = ({ label, sortKey }) => {
-                const isSorted = sortConfig.key === sortKey;
-                const direction = isSorted ? sortConfig.direction : 'none';
-                return (
-                    <div className="flex items-center justify-center relative">
-                        <button onClick={() => onRequestSort(sortKey)} className="flex items-center justify-center w-full whitespace-normal">
-                            <span className="pr-5">{label}</span>
-                            <span className="absolute right-1 top-1/2 -translate-y-1/2">
-                                {isSorted ? (direction === 'ascending' ? <span className="text-emerald-500">▲</span> : <span className="text-emerald-500">▼</span>) : (<ArrowUpDown size={14} className="text-gray-400" />)}
-                            </span>
-                        </button>
-                    </div>
-                );
-            };
-            const HeaderCell = ({ label }) => (<div className="flex items-center justify-center">{label}</div>);
+    async function handleLogout() {
+      const { error } = await sb.auth.signOut();
+      if (error) {
+        alert('退出失败：' + error.message);
+      }
+    }
+
+    // ==== 任务管理功能 ====
+    function showCreateTaskModal() {
+      document.getElementById('task-title').value = '';
+      document.getElementById('task-description').value = '';
+      document.getElementById('task-due-date').value = '';
+      document.getElementById('create-task-modal').classList.remove('hidden');
+      document.getElementById('create-task-modal').classList.add('flex');
+    }
+
+    function hideCreateTaskModal() {
+      document.getElementById('create-task-modal').classList.add('hidden');
+      document.getElementById('create-task-modal').classList.remove('flex');
+    }
+
+    async function saveTask() {
+      const title = document.getElementById('task-title').value;
+      const description = document.getElementById('task-description').value;
+      const dueDate = document.getElementById('task-due-date').value;
+      
+      if (!title) {
+        alert('请输入任务标题');
+        return;
+      }
+      
+      // 创建新任务
+      const { error } = await sb.from('tasks').insert([{
+        title,
+        description,
+        due_date: dueDate,
+        status: '评审中',
+        created_by: currentUser.id
+      }]);
+      
+      if (error) {
+        alert('保存失败：' + error.message);
+      } else {
+        hideCreateTaskModal();
+      }
+    }
+
+    // 显示任务操作弹窗
+    function showTaskActionModal(taskId, title, content, action, confirmText = '确认') {
+      currentTaskId = taskId;
+      currentAction = action;
+      
+      document.getElementById('task-action-title').textContent = title;
+      document.getElementById('task-action-content').innerHTML = content;
+      document.getElementById('task-action-confirm').textContent = confirmText;
+      
+      document.getElementById('task-action-modal').classList.remove('hidden');
+      document.getElementById('task-action-modal').classList.add('flex');
+    }
+
+    function hideTaskActionModal() {
+      document.getElementById('task-action-modal').classList.add('hidden');
+      document.getElementById('task-action-modal').classList.remove('flex');
+      currentTaskId = null;
+      currentAction = null;
+    }
+
+    // 任务分配
+    function showAssignTask(taskId) {
+      // 创建用户选择列表
+      const userOptions = window.allUsers.map(user => `
+        <option value="${user.id}">${user.email} (${user.role})</option>
+      `).join('');
+      
+      const content = `
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2 text-sm">选择负责人</label>
+          <select id="assign-user" class="w-full px-3 py-2 border border-gray-300 rounded text-sm" multiple size="5">
+            ${userOptions}
+          </select>
+          <div class="text-xs text-gray-500 mt-1">按住Ctrl键可多选</div>
+        </div>
+      `;
+      
+      showTaskActionModal(taskId, '分配任务', content, 'assign');
+    }
+
+    // 提交任务（进入下一步）
+    function showSubmitTask(taskId, currentStatus) {
+      const statusMap = {
+        '评审中': '待分配',
+        '待分配': '进行中',
+        '进行中': '审核中',
+        '审核中': '复核中',
+        '复核中': '待签发',
+        '待签发': '已完成'
+      };
+      
+      const nextStatus = statusMap[currentStatus];
+      if (!nextStatus) {
+        alert('此任务已处于最终状态，无法提交');
+        return;
+      }
+      
+      const content = `<p>确定要将任务提交到"${nextStatus}"吗？</p>`;
+      showTaskActionModal(taskId, '提交任务', content, 'submit', `提交到${nextStatus}`);
+    }
+
+    // 退回任务
+    function showReturnTask(taskId, currentStatus) {
+      const statuses = [
+        '评审中', '待分配', '进行中', '审核中', '复核中', '待签发'
+      ];
+      
+      // 排除当前状态
+      const availableStatuses = statuses.filter(s => s !== currentStatus);
+      
+      const statusOptions = availableStatuses.map(status => `
+        <option value="${status}">${status}</option>
+      `).join('');
+      
+      const content = `
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2 text-sm">选择退回状态</label>
+          <select id="return-status" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+            ${statusOptions}
+          </select>
+        </div>
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2 text-sm">退回原因（可选）</label>
+          <textarea id="return-reason" class="w-full px-3 py-2 border border-gray-300 rounded text-sm" rows="2"></textarea>
+        </div>
+      `;
+      
+      showTaskActionModal(taskId, '退回任务', content, 'return');
+    }
+
+    // 删除任务
+    function showDeleteTask(taskId) {
+      const content = '<p>确定要删除此任务吗？此操作不可恢复。</p>';
+      showTaskActionModal(taskId, '删除任务', content, 'delete', '删除');
+    }
+
+    // 确认任务操作
+    async function confirmTaskAction() {
+      if (!currentTaskId || !currentAction) return;
+      
+      try {
+        switch (currentAction) {
+          case 'assign':
+            // 获取选中的用户
+            const selectEl = document.getElementById('assign-user');
+            const assignees = Array.from(selectEl.selectedOptions).map(option => option.value);
             
-            return (
-                <div className={`grid ${gridColsClass} gap-4 px-4 py-3 bg-slate-100 dark:bg-slate-800 text-sm font-bold text-slate-700 dark:text-slate-300 sticky top-0 z-10 text-center border-b-2 border-slate-200 dark:border-slate-700`}>
-                    <div/>
-                    <SortableHeader label="任务下达日期" sortKey="created_at" />
-                    <SortableHeader label="任务编号" sortKey="custom_task_id" />
-                    <HeaderCell label="项目名称" />
-                    <HeaderCell label="任务类型" />
-                    <HeaderCell label="所属部门" />
-                    <SortableHeader label="合同金额" sortKey="contract_amount" />
-                    <HeaderCell label="业务人员" />
-                    <HeaderCell label="项目负责人" />
-                    {currentView !== 'void' && <SortableHeader label="合同规定完成日期" sortKey="contractual_due_date" />}
-                    {currentView === 'done' && <SortableHeader label="实际完成日期" sortKey="actual_completion_date" />}
-                    <HeaderCell label="项目进展情况" />
-                    {currentView === 'inprogress' && <HeaderCell label="剩余时间" />}
-                    {currentView === 'done' && <HeaderCell label="存档" />}
-                    {currentView !== 'void' && <HeaderCell label="所属地区" />}
-                    <HeaderCell label="操作" />
-                </div>
-            );
-        };
-
-        const TaskRow = ({ task, index, currentView, onEdit, onUpdateStatus, onShowProgress }) => {
-            const [isMenuOpen, setIsMenuOpen] = useState(false);
-            const menuRef = useRef(null);
-
-            useEffect(() => {
-                const handleClickOutside = (event) => {
-                    if (menuRef.current && !menuRef.current.contains(event.target)) {
-                        setIsMenuOpen(false);
-                    }
-                };
-                document.addEventListener("mousedown", handleClickOutside);
-                return () => document.removeEventListener("mousedown", handleClickOutside);
-            }, [menuRef]);
-
-            let timeRemaining = { status: '', time: '' };
-            let timeRemainingColorClass = 'text-slate-700 dark:text-slate-300';
-            let rowBgColor = index % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-gray-50/50 dark:bg-slate-800/50';
-
-            if (currentView === 'inprogress' && task.contractual_due_date) {
-                const today = new Date(); today.setHours(0, 0, 0, 0);
-                const dueDate = new Date(task.contractual_due_date); dueDate.setHours(0, 0, 0, 0);
-                const diffTime = dueDate.getTime() - today.getTime();
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                timeRemaining = formatDuration(diffDays);
-                if (diffDays < 0) { timeRemainingColorClass = 'text-rose-600 dark:text-rose-400'; rowBgColor = 'bg-rose-50 dark:bg-rose-900/20'; }
-                else if (diffDays <= 7) { timeRemainingColorClass = 'text-amber-600 dark:text-amber-400'; rowBgColor = 'bg-amber-50 dark:bg-amber-900/20'; }
+            await sb.from('tasks')
+              .update({ assignees, status: '待分配' })
+              .eq('id', currentTaskId);
+            break;
+            
+          case 'submit':
+            // 获取当前任务状态
+            const { data: task } = await sb
+              .from('tasks')
+              .select('status')
+              .eq('id', currentTaskId)
+              .single();
+              
+            const statusMap = {
+              '评审中': '待分配',
+              '待分配': '进行中',
+              '进行中': '审核中',
+              '审核中': '复核中',
+              '复核中': '待签发',
+              '待签发': '已完成'
+            };
+            
+            const nextStatus = statusMap[task.status];
+            if (nextStatus) {
+              await sb.from('tasks')
+                .update({ status: nextStatus })
+                .eq('id', currentTaskId);
             }
-             if (currentView === 'void') { rowBgColor = 'bg-slate-200/50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-500 line-through'; }
-
-            const gridColsClass = GRID_COLS[currentView.toUpperCase()] || GRID_COLS.INPROGRESS;
-            const latestProgress = (task.progress_details && task.progress_details.length > 0) ? task.progress_details[0].text : '暂无进展';
-
-            return (
-                 <div className={`grid ${gridColsClass} gap-4 px-4 py-2 items-center ${rowBgColor} border-b border-gray-200 dark:border-slate-700 text-sm text-center hover:bg-sky-100 dark:hover:bg-sky-900/50`}>
-                    <div/>
-                    <div>{formatDate(task.created_at)}</div>
-                    <div className="font-mono">{task.custom_task_id}</div>
-                    <div className="text-left whitespace-normal break-words">{task.project_name}</div>
-                    <div className="whitespace-normal break-words">{task.task_type}</div>
-                    <div className="whitespace-normal break-words">{task.department}</div>
-                    <div>{formatAmount(task.contract_amount)}</div>
-                    <div>{task.sales_person}</div>
-                    <div>{task.project_manager_id ? task.project_manager_id.substring(0,8) : ''}</div>
-                    {currentView !== 'void' && <div>{formatDate(task.contractual_due_date)}</div>}
-                    {currentView === 'done' && <div>{formatDate(task.actual_completion_date)}</div>}
-                    <div className="flex items-center justify-start gap-2 cursor-pointer" title="查看所有进展" onClick={() => onShowProgress(task)}>
-                         <MessageSquare size={16} className="flex-shrink-0" />
-                         <span className="line-clamp-2 text-left">{latestProgress}</span>
-                    </div>
-                    {currentView === 'inprogress' && <div className={`font-medium ${timeRemainingColorClass}`}>{timeRemaining.status} {timeRemaining.time}</div>}
-                    {currentView === 'done' && <div className="flex justify-center items-center">{task.is_archived ? <CheckCircle size={16} className="text-green-500" /> : <Archive size={16} />}</div>}
-                    {currentView !== 'void' && <div>{task.region}</div>}
-                    
-                    <div className="relative" ref={menuRef}>
-                        <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700"><MoreHorizontal size={20} /></button>
-                        {isMenuOpen && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-md shadow-xl z-20 border dark:border-slate-700">
-                                <a href="#" onClick={(e) => { e.preventDefault(); onShowProgress(task); setIsMenuOpen(false); }} className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
-                                    <MessageSquare size={16} /> 查看/添加进展
-                                </a>
-                                <a href="#" onClick={(e) => { e.preventDefault(); onEdit(task); setIsMenuOpen(false); }} className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
-                                    <Edit3 size={16}/> 编辑任务
-                                </a>
-                                {currentView === 'inprogress' && (
-                                    <a href="#" onClick={(e) => { e.preventDefault(); onUpdateStatus(task.id, 'done'); setIsMenuOpen(false); }} className="flex items-center gap-3 px-4 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-slate-100 dark:hover:bg-slate-700">
-                                        <CheckCircle size={16}/> 标记为已完成
-                                    </a>
-                                )}
-                                {currentView !== 'void' && (
-                                   <a href="#" onClick={(e) => { e.preventDefault(); onUpdateStatus(task.id, 'void'); setIsMenuOpen(false); }} className="flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-700">
-                                       <Trash2 size={16}/> 作废任务
-                                   </a>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            );
-        };
-        
-        const Auth = () => {
-             // ... [此组件代码无变化，保持原样]
-            const [email, setEmail] = useState('');
-            const [password, setPassword] = useState('');
-            const [fullName, setFullName] = useState('');
-            const [isLoginView, setIsLoginView] = useState(true);
-            const [loading, setLoading] = useState(false);
-            const [error, setError] = useState(null);
-            const [message, setMessage] = useState('');
-
-            const handleAuthAction = async (e) => {
-                e.preventDefault(); setLoading(true); setError(null); setMessage('');
-                try {
-                    let response;
-                    if (isLoginView) { response = await supabase.auth.signInWithPassword({ email, password }); } 
-                    else { 
-                        const { error: signUpError } = await supabase.auth.signUp({ 
-                            email, password, options: { data: { full_name: fullName } }
-                        });
-                        if (signUpError) throw signUpError;
-                        setMessage('注册成功！请检查您的邮箱以完成验证。');
-                        response = { error: signUpError };
-                    }
-                    if (response.error) throw response.error;
-                } catch (error) { setError(error.message); } 
-                finally { setLoading(false); }
-            };
-
-            return (
-                <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col justify-center items-center p-4">
-                    <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-8">
-                        <h1 className="text-3xl font-bold text-center text-slate-900 dark:text-slate-100 mb-2">咨询任务管理系统</h1>
-                        <p className="text-center text-slate-500 dark:text-slate-400 mb-6">{isLoginView ? '请登录以继续' : '创建新账户'}</p>
-                        {error && <p className="bg-red-100 text-red-700 p-3 rounded-md text-center mb-4">{error}</p>}
-                        {message && <p className="bg-green-100 text-green-700 p-3 rounded-md text-center mb-4">{message}</p>}
-                        <form onSubmit={handleAuthAction} className="space-y-4">
-                            {!isLoginView && ( <div> <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">姓名</label> <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" required /> </div> )}
-                            <div> <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">邮箱</label> <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" required /> </div>
-                            <div> <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">密码</label> <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" required /> </div>
-                            <button type="submit" disabled={loading} className="w-full px-6 py-3 rounded-md text-white bg-emerald-500 hover:bg-emerald-600 font-semibold disabled:bg-emerald-300">{loading ? '处理中...' : (isLoginView ? '登录' : '注册')}</button>
-                        </form>
-                        <p className="text-center text-sm text-slate-500 mt-6">
-                            {isLoginView ? "还没有账户？" : "已有账户？"}
-                            <button onClick={() => { setIsLoginView(!isLoginView); setError(null); }} className="font-semibold text-emerald-500 hover:underline ml-1">{isLoginView ? '立即注册' : '返回登录'}</button>
-                        </p>
-                    </div>
-                </div>
-            );
-        };
-
-        // --- 新增: 任务表单模态框 ---
-        const TaskModal = ({ task, onClose, onSave, allProfiles }) => {
-            const [formData, setFormData] = useState(task || {
-                project_name: '', task_type: '', department: '', contract_amount: '', sales_person: '',
-                project_manager_id: '', contractual_due_date: '', region: '', custom_task_id: ''
-            });
-
-            const handleChange = (e) => {
-                const { name, value } = e.target;
-                setFormData(prev => ({ ...prev, [name]: value }));
-            };
-
-            const handleSubmit = (e) => {
-                e.preventDefault();
-                onSave(formData);
-            };
-
-            return (
-                <div className="modal-overlay">
-                    <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
-                        <h2 className="text-xl font-bold p-6 border-b dark:border-slate-700 text-slate-800 dark:text-slate-200">
-                            {task.id ? '编辑任务' : '创建新任务'}
-                        </h2>
-                        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div><label className="block text-sm">项目名称</label><input required name="project_name" value={formData.project_name} onChange={handleChange} className="w-full mt-1 p-2 border rounded dark:bg-slate-700 dark:border-slate-600" /></div>
-                                <div><label className="block text-sm">任务编号</label><input name="custom_task_id" value={formData.custom_task_id} onChange={handleChange} className="w-full mt-1 p-2 border rounded dark:bg-slate-700 dark:border-slate-600" /></div>
-                                <div><label className="block text-sm">任务类型</label><input name="task_type" value={formData.task_type} onChange={handleChange} className="w-full mt-1 p-2 border rounded dark:bg-slate-700 dark:border-slate-600" /></div>
-                                <div><label className="block text-sm">所属部门</label><input name="department" value={formData.department} onChange={handleChange} className="w-full mt-1 p-2 border rounded dark:bg-slate-700 dark:border-slate-600" /></div>
-                                <div><label className="block text-sm">合同金额 (元)</label><input type="number" name="contract_amount" value={formData.contract_amount} onChange={handleChange} className="w-full mt-1 p-2 border rounded dark:bg-slate-700 dark:border-slate-600" /></div>
-                                <div><label className="block text-sm">业务人员</label><input name="sales_person" value={formData.sales_person} onChange={handleChange} className="w-full mt-1 p-2 border rounded dark:bg-slate-700 dark:border-slate-600" /></div>
-                                <div><label className="block text-sm">合同规定完成日期</label><input type="date" name="contractual_due_date" value={formatDate(formData.contractual_due_date)} onChange={handleChange} className="w-full mt-1 p-2 border rounded dark:bg-slate-700 dark:border-slate-600" /></div>
-                                <div><label className="block text-sm">所属地区</label><input name="region" value={formData.region} onChange={handleChange} className="w-full mt-1 p-2 border rounded dark:bg-slate-700 dark:border-slate-600" /></div>
-                            </div>
-                        </form>
-                        <div className="flex justify-end gap-4 p-4 mt-auto border-t dark:border-slate-700">
-                            <button onClick={onClose} className="px-4 py-2 rounded bg-slate-200 dark:bg-slate-600">取消</button>
-                            <button onClick={handleSubmit} className="px-4 py-2 rounded bg-emerald-500 text-white">保存</button>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        // --- 新增: 进展模态框 ---
-        const ProgressModal = ({ task, onClose, onSaveProgress }) => {
-            const [newProgress, setNewProgress] = useState('');
-            const progressList = useMemo(() => task.progress_details || [], [task]);
-
-            const handleAddProgress = () => {
-                if (!newProgress.trim()) return;
-                onSaveProgress(task.id, newProgress);
-                setNewProgress('');
-            };
-
-            return (
-                 <div className="modal-overlay">
-                    <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
-                         <h2 className="text-xl font-bold p-6 border-b dark:border-slate-700 text-slate-800 dark:text-slate-200">
-                            项目进展 - {task.project_name}
-                        </h2>
-                        <div className="p-6 flex-grow overflow-y-auto space-y-4">
-                            {progressList.length > 0 ? progressList.map((p, i) => (
-                                <div key={i} className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-md">
-                                    <p className="text-slate-800 dark:text-slate-200">{p.text}</p>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{new Date(p.timestamp).toLocaleString()}</p>
-                                </div>
-                            )) : <p className="text-slate-500">暂无进展记录。</p>}
-                        </div>
-                        <div className="p-6 border-t dark:border-slate-700">
-                            <textarea
-                                value={newProgress}
-                                onChange={(e) => setNewProgress(e.target.value)}
-                                placeholder="添加新的进展..."
-                                className="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600"
-                                rows="3"
-                            ></textarea>
-                            <div className="flex justify-end gap-4 mt-4">
-                                <button onClick={onClose} className="px-4 py-2 rounded bg-slate-200 dark:bg-slate-600">关闭</button>
-                                <button onClick={handleAddProgress} className="px-4 py-2 rounded bg-emerald-500 text-white">添加进展</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
+            break;
+            
+          case 'return':
+            const targetStatus = document.getElementById('return-status').value;
+            await sb.from('tasks')
+              .update({ status: targetStatus })
+              .eq('id', currentTaskId);
+            break;
+            
+          case 'delete':
+            await sb.from('tasks')
+              .delete()
+              .eq('id', currentTaskId);
+            break;
         }
         
-        // --- 2. 主应用 (App) 组件 ---
-        function App() {
-            const [session, setSession] = useState(null);
-            const [profile, setProfile] = useState(null);
-            const [appIsLoading, setAppIsLoading] = useState(true);
-            const [tasks, setTasks] = useState([]);
-            const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'descending' });
-            
-            // --- 修改: 视图状态 & 模态框状态 ---
-            const [currentView, setCurrentView] = useState('inprogress'); // inprogress, done, void
-            const [editingTask, setEditingTask] = useState(null); // null or task object
-            const [progressTask, setProgressTask] = useState(null); // null or task object
+        hideTaskActionModal();
+      } catch (error) {
+        alert('操作失败：' + error.message);
+      }
+    }
 
-            const fetchTasks = useCallback(async () => {
-                const { data, error } = await supabase.from('tasks').select('*')
-                  .order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' });
-                if (error) console.error("获取任务失败", error);
-                else setTasks(data || []);
-            }, [sortConfig]);
+    // ==== 团队管理功能 ====
+    function showTeamManagement() {
+      document.getElementById('team-management-modal').classList.remove('hidden');
+      document.getElementById('team-management-modal').classList.add('flex');
+      renderUserList();
+    }
 
-            useEffect(() => {
-                supabase.auth.getSession().then(({ data: { session } }) => {
-                    setSession(session);
-                    if (!session) setAppIsLoading(false);
-                });
-                const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setSession(session); });
-                return () => subscription.unsubscribe();
-            }, []);
+    function hideTeamManagement() {
+      document.getElementById('team-management-modal').classList.add('hidden');
+      document.getElementById('team-management-modal').classList.remove('flex');
+    }
 
-            useEffect(() => {
-                if (session) {
-                    setAppIsLoading(true);
-                    const fetchInitialData = async () => {
-                        const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-                        if (profileError) console.error("获取用户资料失败", profileError);
-                        else setProfile(profileData);
-                        
-                        await fetchTasks();
-                        
-                        setAppIsLoading(false);
-                    };
-                    fetchInitialData();
-                } else {
-                    setProfile(null);
-                    setTasks([]);
-                }
-            }, [session, fetchTasks]);
-
-            const handleRequestSort = (key) => {
-                let direction = 'ascending';
-                if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-                    direction = 'descending';
-                }
-                setSortConfig({ key, direction });
-            };
-
-            // --- 新增: 任务保存逻辑 ---
-            const handleSaveTask = async (taskData) => {
-                const dataToSave = { ...taskData };
-                // 确保金额为数字或null
-                dataToSave.contract_amount = dataToSave.contract_amount ? Number(dataToSave.contract_amount) : null;
-                
-                if (taskData.id) { // 更新任务
-                    const { error } = await supabase.from('tasks').update(dataToSave).eq('id', taskData.id);
-                    if (error) console.error("更新任务失败:", error);
-                } else { // 创建任务
-                    const { error } = await supabase.from('tasks').insert([{ ...dataToSave, status: 'inprogress' }]);
-                    if (error) console.error("创建任务失败:", error);
-                }
-                await fetchTasks();
-                setEditingTask(null); // 关闭模态框
-            };
-            
-            // --- 新增: 更新任务状态逻辑 ---
-            const handleUpdateStatus = async (taskId, newStatus) => {
-                const updateData = { status: newStatus };
-                if (newStatus === 'done') {
-                    updateData.actual_completion_date = new Date().toISOString();
-                }
-                const { error } = await supabase.from('tasks').update(updateData).eq('id', taskId);
-                if (error) console.error("更新状态失败:", error);
-                else await fetchTasks();
-            };
-
-            // --- 新增: 保存进展逻辑 ---
-            const handleSaveProgress = async (taskId, newProgressText) => {
-                const taskToUpdate = tasks.find(t => t.id === taskId);
-                if (!taskToUpdate) return;
-                
-                const newProgressEntry = { text: newProgressText, timestamp: new Date().toISOString() };
-                const updatedProgress = [newProgressEntry, ...(taskToUpdate.progress_details || [])];
-                
-                const { error } = await supabase.from('tasks').update({ progress_details: updatedProgress }).eq('id', taskId);
-                if (error) console.error("添加进展失败:", error);
-                else {
-                    await fetchTasks();
-                    setProgressTask(prev => ({...prev, progress_details: updatedProgress}));
-                }
-            };
-
-            const filteredTasks = useMemo(() => {
-                if (currentView === 'inprogress') {
-                    return tasks.filter(task => task.status !== 'done' && task.status !== 'void');
-                }
-                return tasks.filter(task => task.status === currentView);
-            }, [tasks, currentView]);
-
-            if (appIsLoading) { return <div className="flex justify-center items-center h-screen text-2xl dark:bg-slate-900 dark:text-slate-200">正在加载应用...</div>; }
-            if (!session) { return <Auth />; }
-            if (!profile) { return <div className="flex justify-center items-center h-screen text-2xl dark:bg-slate-900 dark:text-slate-200">正在加载用户资料...</div>; }
-            
-            return (
-                <div className="h-screen bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-200 p-4 lg:p-6 flex flex-col">
-                    <header className="flex-shrink-0 flex items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
-                        <div>
-                            <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 dark:text-slate-100">咨询任务管理系统</h1>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">在线协作版 - {profile.full_name}</p>
-                        </div>
-                        <button onClick={() => supabase.auth.signOut()} className="px-4 py-2 bg-red-500 text-white rounded font-semibold">退出登录</button>
-                    </header>
-                    <div className="flex-shrink-0 mb-4 flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                             <button onClick={() => setEditingTask({})} className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg font-semibold shadow-sm hover:bg-emerald-600">
-                                <Plus size={18}/>创建任务
-                            </button>
-                        </div>
-                        {/* --- 修改: 视图切换标签 --- */}
-                        <div className="flex items-center border border-slate-300 dark:border-slate-600 rounded-lg p-1">
-                            {['inprogress', 'done', 'void'].map(view => {
-                                const isActive = currentView === view;
-                                const viewText = {inprogress: '进行中', done: '已完成', void: '已作废'}[view];
-                                return (
-                                    <button
-                                        key={view}
-                                        onClick={() => setCurrentView(view)}
-                                        className={`px-4 py-1 rounded-md text-sm font-semibold transition-colors ${
-                                            isActive ? 'bg-emerald-500 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                                        }`}
-                                    >
-                                        {viewText}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                    <main className="bg-white dark:bg-slate-800/50 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 flex flex-col flex-grow min-h-0 overflow-hidden">
-                        <div className="flex-grow overflow-y-auto">
-                           <ListHeader sortConfig={sortConfig} onRequestSort={handleRequestSort} currentView={currentView}/>
-                           {filteredTasks.length > 0 ? (
-                                filteredTasks.map((task, index) => <TaskRow key={task.id} task={task} index={index} currentView={currentView} onEdit={setEditingTask} onUpdateStatus={handleUpdateStatus} onShowProgress={setProgressTask} />)
-                            ) : (
-                                <div className="text-center py-16 text-slate-500 dark:text-slate-400">此视图下没有任务。</div>
-                            )}
-                        </div>
-                    </main>
-                     {/* --- 新增: 模态框渲染 --- */}
-                    {editingTask && <TaskModal task={editingTask} onClose={() => setEditingTask(null)} onSave={handleSaveTask} />}
-                    {progressTask && <ProgressModal task={progressTask} onClose={() => setProgressTask(null)} onSaveProgress={handleSaveProgress} />}
-                </div>
-            );
-        }
+    async function addUser() {
+      const email = document.getElementById('new-user-email').value;
+      const role = document.getElementById('new-user-role').value;
+      
+      if (!email) {
+        alert('请输入用户邮箱');
+        return;
+      }
+      
+      try {
+        // 创建用户（初始密码123456，用户可自行修改）
+        const { data: authData } = await sb.auth.admin.createUser({
+          email,
+          password: '123456',
+          email_confirm: true
+        });
         
-        ReactDOM.render(<App />, document.getElementById('root'));
-    </script>
+        // 保存用户信息
+        await sb.from('users').insert([{
+          id: authData.user.id,
+          email,
+          role,
+          is_admin: false
+        }]);
+        
+        // 初始化权限
+        await sb.from('permissions').insert([{
+          user_id: authData.user.id,
+          can_create: false,
+          can_assign: false,
+          can_edit: false,
+          can_delete: false,
+          visible_statuses: ['评审中', '待分配', '进行中', '审核中', '复核中', '待签发', '已完成']
+        }]);
+        
+        // 刷新用户列表
+        loadAllUsers();
+        
+        // 清空表单
+        document.getElementById('new-user-email').value = '';
+        
+        alert('用户添加成功，初始密码：123456');
+      } catch (error) {
+        alert('添加失败：' + error.message);
+      }
+    }
+
+    // ==== 导入导出功能 ====
+    function exportTasks() {
+      alert('导出功能已触发，实际项目中会生成CSV文件下载');
+      // 实际实现中，这里会将任务数据转换为CSV并下载
+    }
+
+    function importTasks(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const content = e.target.result;
+          const lines = content.split('\n').filter(line => line.trim() !== '');
+          
+          // 跳过表头
+          for (let i = 1; i < lines.length; i++) {
+            const line = lines[i];
+            const [title, description, dueDate, actualCompleteDate] = line.split(',');
+            
+            // 自动判断状态
+            let status = '评审中';
+            if (actualCompleteDate) {
+              status = '已完成';
+            }
+            
+            // 导入任务
+            await sb.from('tasks').insert([{
+              title,
+              description,
+              due_date: dueDate || null,
+              actual_complete_date: actualCompleteDate || null,
+              status,
+              created_by: currentUser.id
+            }]);
+          }
+          
+          alert(`成功导入${lines.length - 1}个任务`);
+        } catch (error) {
+          alert('导入失败：' + error.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // ==== 辅助函数 ====
+    function getStatusId(status) {
+      const map = {
+        '评审中': 'reviewing',
+        '待分配': 'to-assign',
+        '进行中': 'in-progress',
+        '审核中': 'reviewing-2',
+        '复核中': 'rechecking',
+        '待签发': 'to-sign',
+        '已完成': 'completed'
+      };
+      return map[status] || status;
+    }
+
+    function formatDate(dateString) {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      return date.toLocaleDateString();
+    }
+
+    function getAssigneesNames(assigneeIds) {
+      if (!assigneeIds || assigneeIds.length === 0) return '未分配';
+      
+      return assigneeIds.map(id => {
+        const user = window.allUsers.find(u => u.id === id);
+        return user ? user.email : '未知用户';
+      }).join('、');
+    }
+  </script>
 </body>
 </html>
