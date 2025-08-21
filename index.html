@@ -1,311 +1,41 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>任务管理系统（完整版）</title>
-  <!-- 外部资源 -->
+  <!-- 引入 Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入 Font Awesome 图标库 -->
   <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <!-- 引入 Supabase JS 库 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <!-- Tailwind配置（保留原有风格的颜色和样式） -->
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            primary: '#2563eb', // 主色（保留原有蓝色系）
-            secondary: '#10b981', // 完成状态色
-            warning: '#f59e0b', // 待分配状态色
-            danger: '#ef4444', // 错误/删除色
-            neutral: '#64748b', // 中性色
-          },
-          fontFamily: {
-            sans: ['Microsoft YaHei', 'sans-serif'], // 保留中文字体
-          },
-        },
-      }
-    }
-  </script>
-
-  <style type="text/tailwindcss">
-    @layer utilities {
-      /* 保留原有任务卡片样式 */
-      .task-card {
-        @apply bg-white rounded-md shadow-sm p-3 mb-2 border-l-4 hover:shadow transition-all cursor-pointer;
-      }
-      .task-column {
-        @apply bg-gray-50 rounded-lg p-3 h-[calc(100vh-180px)] overflow-y-auto;
-      }
-      .status-badge {
-        @apply inline-block px-2 py-0.5 rounded-full text-xs font-medium;
-      }
-      .btn-action {
-        @apply px-2 py-1 text-xs rounded hover:opacity-90 transition-opacity;
-      }
-    }
-  </style>
-</head>
-<body class="bg-gray-100 min-h-screen">
-  <!-- 登录遮罩（未登录时显示） -->
-  <div id="login-mask" class="fixed inset-0 bg-white z-50 flex items-center justify-center">
-    <div class="w-full max-w-md p-6 bg-white rounded-lg shadow-lg">
-      <h2 class="text-2xl font-bold text-center mb-6">任务管理系统</h2>
-      <div class="mb-4">
-        <label class="block text-gray-700 mb-1">邮箱</label>
-        <input type="email" id="login-email" class="w-full px-3 py-2 border border-gray-300 rounded" placeholder="请输入邮箱">
-      </div>
-      <div class="mb-6">
-        <label class="block text-gray-700 mb-1">密码</label>
-        <input type="password" id="login-password" class="w-full px-3 py-2 border border-gray-300 rounded" placeholder="请输入密码">
-      </div>
-      <button onclick="handleLogin()" class="w-full bg-primary text-white py-2 rounded hover:bg-primary/90 transition-colors">
-        登录系统
-      </button>
-      <div id="login-error" class="mt-3 text-danger text-sm text-center hidden"></div>
-    </div>
-  </div>
-
-  <!-- 主应用界面（登录后显示） -->
-  <div id="app" class="hidden">
-    <!-- 顶部导航栏（保留原有布局） -->
-    <header class="bg-white shadow-sm px-6 py-4">
-      <div class="flex justify-between items-center">
-        <h1 class="text-xl font-bold text-gray-800">任务管理系统</h1>
-        
-        <div class="flex items-center gap-4">
-          <!-- 通知提醒 -->
-          <div class="relative">
-            <button class="text-gray-600 hover:text-primary">
-              <i class="fa fa-bell-o text-lg"></i>
-              <span id="notification-count" class="absolute -top-1 -right-1 bg-danger text-white text-xs rounded-full w-4 h-4 flex items-center justify-center hidden">0</span>
-            </button>
-          </div>
-          
-          <!-- 用户信息 -->
-          <div class="flex items-center gap-2">
-            <span id="current-user" class="text-sm text-gray-600"></span>
-            <button onclick="handleLogout()" class="text-sm text-gray-500 hover:text-danger">
-              <i class="fa fa-sign-out"></i> 退出
-            </button>
-          </div>
-        </div>
-      </div>
-    </header>
-
-    <!-- 功能按钮区（保留原有按钮位置） -->
-    <div class="px-6 py-4 flex flex-wrap gap-3">
-      <button id="btn-create-task" onclick="showCreateTaskModal()" class="bg-primary text-white px-4 py-2 rounded text-sm flex items-center hidden">
-        <i class="fa fa-plus mr-1"></i> 创建任务
-      </button>
-      
-      <button id="btn-team-management" onclick="showTeamManagement()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm flex items-center hidden">
-        <i class="fa fa-users mr-1"></i> 团队管理
-      </button>
-      
-      <button onclick="exportTasks()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm flex items-center">
-        <i class="fa fa-download mr-1"></i> 导出任务
-      </button>
-      
-      <label class="bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm flex items-center cursor-pointer">
-        <i class="fa fa-upload mr-1"></i> 导入任务
-        <input type="file" id="import-file" accept=".csv" class="hidden" onchange="importTasks(event)">
-      </label>
-      
-      <a href="task-template.csv" download class="bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm flex items-center">
-        <i class="fa fa-file-text-o mr-1"></i> 导入模板
-      </a>
-    </div>
-
-    <!-- 任务状态视图区（保留原有7个状态布局） -->
-    <div class="px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-      <!-- 1. 评审中 -->
-      <div class="task-column">
-        <div class="flex justify-between items-center mb-3">
-          <h3 class="font-bold text-gray-800 flex items-center">
-            评审中
-            <span id="count-reviewing" class="status-badge bg-primary/10 text-primary ml-2">0</span>
-          </h3>
-        </div>
-        <div id="tasks-reviewing" class="space-y-2"></div>
-      </div>
-
-      <!-- 2. 待分配 -->
-      <div class="task-column">
-        <div class="flex justify-between items-center mb-3">
-          <h3 class="font-bold text-gray-800 flex items-center">
-            待分配
-            <span id="count-to-assign" class="status-badge bg-warning/10 text-warning ml-2">0</span>
-          </h3>
-        </div>
-        <div id="tasks-to-assign" class="space-y-2"></div>
-      </div>
-
-      <!-- 3. 进行中 -->
-      <div class="task-column">
-        <div class="flex justify-between items-center mb-3">
-          <h3 class="font-bold text-gray-800 flex items-center">
-            进行中
-            <span id="count-in-progress" class="status-badge bg-blue-100 text-blue-700 ml-2">0</span>
-          </h3>
-        </div>
-        <div id="tasks-in-progress" class="space-y-2"></div>
-      </div>
-
-      <!-- 4. 审核中 -->
-      <div class="task-column">
-        <div class="flex justify-between items-center mb-3">
-          <h3 class="font-bold text-gray-800 flex items-center">
-            审核中
-            <span id="count-reviewing-2" class="status-badge bg-purple-100 text-purple-700 ml-2">0</span>
-          </h3>
-        </div>
-        <div id="tasks-reviewing-2" class="space-y-2"></div>
-      </div>
-
-      <!-- 5. 复核中 -->
-      <div class="task-column">
-        <div class="flex justify-between items-center mb-3">
-          <h3 class="font-bold text-gray-800 flex items-center">
-            复核中
-            <span id="count-rechecking" class="status-badge bg-indigo-100 text-indigo-700 ml-2">0</span>
-          </h3>
-        </div>
-        <div id="tasks-rechecking" class="space-y-2"></div>
-      </div>
-
-      <!-- 6. 待签发 -->
-      <div class="task-column">
-        <div class="flex justify-between items-center mb-3">
-          <h3 class="font-bold text-gray-800 flex items-center">
-            待签发
-            <span id="count-to-sign" class="status-badge bg-teal-100 text-teal-700 ml-2">0</span>
-          </h3>
-        </div>
-        <div id="tasks-to-sign" class="space-y-2"></div>
-      </div>
-
-      <!-- 7. 已完成 -->
-      <div class="task-column">
-        <div class="flex justify-between items-center mb-3">
-          <h3 class="font-bold text-gray-800 flex items-center">
-            已完成
-            <span id="count-completed" class="status-badge bg-secondary/10 text-secondary ml-2">0</span>
-          </h3>
-        </div>
-        <div id="tasks-completed" class="space-y-2"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 创建任务弹窗（保留原有样式） -->
-  <div id="create-task-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-lg shadow w-full max-w-md p-5">
-      <h3 class="text-lg font-bold mb-4">创建新任务</h3>
-      <div class="mb-3">
-        <label class="block text-gray-700 text-sm mb-1">任务标题 <span class="text-danger">*</span></label>
-        <input type="text" id="task-title" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
-      </div>
-      <div class="mb-3">
-        <label class="block text-gray-700 text-sm mb-1">任务描述</label>
-        <textarea id="task-description" class="w-full px-3 py-2 border border-gray-300 rounded text-sm" rows="3"></textarea>
-      </div>
-      <div class="mb-3">
-        <label class="block text-gray-700 text-sm mb-1">截止日期</label>
-        <input type="date" id="task-due-date" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
-      </div>
-      <div class="flex justify-end gap-2 mt-5">
-        <button onclick="hideCreateTaskModal()" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">取消</button>
-        <button onclick="saveTask()" class="px-3 py-1 bg-primary text-white rounded text-sm hover:bg-primary/90">保存</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 团队管理弹窗 -->
-  <div id="team-management-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-lg shadow w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-      <div class="p-5 border-b">
-        <div class="flex justify-between items-center">
-          <h3 class="text-lg font-bold">团队管理</h3>
-          <button onclick="hideTeamManagement()" class="text-gray-500 hover:text-gray-700">
-            <i class="fa fa-times"></i>
-          </button>
-        </div>
-      </div>
-
-      <!-- 管理员：添加用户 -->
-      <div id="admin-add-user" class="p-5 border-b hidden">
-        <h4 class="font-bold mb-3 text-sm text-gray-700">添加新用户</h4>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <label class="block text-gray-600 text-xs mb-1">邮箱</label>
-            <input type="email" id="new-user-email" class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
-          </div>
-          <div>
-            <label class="block text-gray-600 text-xs mb-1">角色</label>
-            <select id="new-user-role" class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
-              <option value="经理">经理</option>
-              <option value="前台客服">前台客服</option>
-              <option value="部门负责人">部门负责人</option>
-              <option value="项目负责人">项目负责人</option>
-              <option value="审核人">审核人</option>
-              <option value="复核人">复核人</option>
-              <option value="办公室">办公室</option>
-            </select>
-          </div>
-          <div class="flex items-end">
-            <button onclick="addUser()" class="w-full bg-primary text-white px-2 py-1 rounded text-sm">添加</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 用户列表与权限配置 -->
-      <div class="p-5">
-        <h4 class="font-bold mb-3 text-sm text-gray-700">用户权限配置</h4>
-        <div id="user-permissions-list" class="space-y-4"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 任务操作弹窗 -->
-  <div id="task-action-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-lg shadow w-full max-w-md p-5">
-      <h3 class="text-lg font-bold mb-4" id="task-action-title">任务操作</h3>
-      <div id="task-action-content" class="mb-4"></div>
-      <div class="flex justify-end gap-2">
-        <button onclick="hideTaskActionModal()" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">取消</button>
-        <button id="task-action-confirm" onclick="confirmTaskAction()" class="px-3 py-1 bg-primary text-white rounded text-sm hover:bg-primary/90">确认</button>
-      </div>
-    </div>
-  </div>
+  <title>任务管理系统（完整版）</title>
 
   <script>
-    // ==== 配置Supabase（替换为你的项目信息） ====
-    const supabaseUrl = "https://gpcsknsnwatqqcnywuiv.supabase.co"; // 你的Supabase URL
-    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwY3NrbnNud2F0cXFjbnl3dWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzNzc5MTMsImV4cCI6MjA2OTk1MzkxM30.M-02UaHW22nU0MLmRtiIIlcmb7tnceoisFIkTK05NCY"; // 你的Supabase anon key
+    // 初始化 Supabase 客户端，使用你提供的项目信息
+    const supabaseUrl = "https://gpcsknsnwatqqcnywuiv.supabase.co";
+    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwY3NrbnNud2F0cXFjbnl3dWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzNzc5MTMsImV4cCI6MjA2OTk1MzkxM30.M-02UaHW22nU0MLmRtiIIlcmb7tnceoisFIkTK05NCY";
     const sb = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-    // 全局变量
+    // 全局变量，存储当前用户和权限信息
     let currentUser = null;
     let currentPermissions = null;
-    let currentTaskId = null;
-    let currentAction = null;
     let allUsers = [];
 
-    // 页面加载时初始化
+    // 页面加载完成后执行的初始化逻辑
     document.addEventListener('DOMContentLoaded', async () => {
-      // 检查登录状态
+      // 检查用户登录状态
       const { data } = await sb.auth.getSession();
       if (data.session) {
         currentUser = data.session.user;
         await initApp();
       } else {
-        // 显示登录遮罩
+        // 显示登录遮罩层
         document.getElementById('login-mask').classList.remove('hidden');
       }
 
-      // 监听登录状态变化
+      // 监听登录状态变化，状态改变时更新页面
       sb.auth.onAuthStateChange((_event, session) => {
         if (session) {
           currentUser = session.user;
@@ -318,42 +48,19 @@
       });
     });
 
-    // 初始化应用（登录后执行）
-    async function initApp() {
-      // 隐藏登录遮罩，显示主应用
-      document.getElementById('login-mask').classList.add('hidden');
-      document.getElementById('app').classList.remove('hidden');
-      
-      // 显示当前用户
-      document.getElementById('current-user').textContent = currentUser.email;
-      
-      // 加载用户权限
-      await loadUserPermissions();
-      
-      // 加载所有用户（用于分配任务和权限配置）
-      await loadAllUsers();
-      
-      // 加载任务列表
-      await loadTasks();
-      
-      // 订阅任务变化（实时同步）
-      subscribeToTasks();
-    }
-
-    // ==== 登录/退出功能 ====
+    // 登录功能函数
     async function handleLogin() {
       const email = document.getElementById('login-email').value;
       const password = document.getElementById('login-password').value;
       const errorEl = document.getElementById('login-error');
-      
       errorEl.classList.add('hidden');
-      
+
       if (!email || !password) {
         errorEl.textContent = '请输入邮箱和密码';
         errorEl.classList.remove('hidden');
         return;
       }
-      
+
       const { error } = await sb.auth.signInWithPassword({ email, password });
       if (error) {
         errorEl.textContent = '登录失败：' + error.message;
@@ -361,19 +68,31 @@
       }
     }
 
+    // 退出登录功能函数
     async function handleLogout() {
       await sb.auth.signOut();
     }
 
-    // ==== 权限控制 ====
+    // 应用初始化函数，登录后执行
+    async function initApp() {
+      document.getElementById('login-mask').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      document.getElementById('current-user').textContent = currentUser.email;
+
+      await loadUserPermissions();
+      await loadAllUsers();
+      await loadTasks();
+      subscribeToTasks();
+    }
+
+    // 加载用户权限函数
     async function loadUserPermissions() {
-      // 获取当前用户权限
       const { data } = await sb
         .from('permissions')
         .select('*')
         .eq('user_id', currentUser.id)
         .single();
-      
+
       currentPermissions = data || {
         can_create: false,
         can_assign: false,
@@ -382,34 +101,32 @@
         visible_statuses: []
       };
 
-      // 控制按钮显示（根据权限）
       document.getElementById('btn-create-task').style.display = currentPermissions.can_create ? 'flex' : 'none';
-      
-      // 检查是否为系统管理员
+
       const { data: userData } = await sb
         .from('users')
         .select('is_admin')
         .eq('id', currentUser.id)
         .single();
-      
+
       if (userData.is_admin) {
         document.getElementById('btn-team-management').style.display = 'flex';
         document.getElementById('admin-add-user').classList.remove('hidden');
       }
     }
 
-    // 加载所有用户（用于团队管理）
+    // 加载所有用户信息函数（用于团队管理）
     async function loadAllUsers() {
       const { data } = await sb.from('users').select('*');
       allUsers = data || [];
-      renderUserPermissionsList(); // 渲染用户权限列表
+      renderUserPermissionsList();
     }
 
-    // 渲染用户权限列表（团队管理页）
+    // 渲染用户权限列表函数（团队管理页面）
     function renderUserPermissionsList() {
       const container = document.getElementById('user-permissions-list');
       if (!container) return;
-      
+
       container.innerHTML = allUsers.map(user => `
         <div class="p-3 border rounded-md">
           <div class="flex justify-between items-start mb-3">
@@ -418,7 +135,7 @@
               <div class="text-xs text-gray-500">角色：${user.role} ${user.is_admin ? '(系统管理者)' : ''}</div>
             </div>
           </div>
-          
+
           ${!user.is_admin ? `
             <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
               <label class="flex items-center">
@@ -447,66 +164,57 @@
       `).join('');
     }
 
-    // 获取用户权限（辅助函数）
+    // 获取用户权限辅助函数
     function getUserPermission(userId, permission) {
-      // 系统管理员默认拥有所有权限
       const user = allUsers.find(u => u.id === userId);
       if (user?.is_admin) return true;
-      
-      // 普通用户查permissions表
       return currentPermissions[permission] || false;
     }
 
-    // 更新用户权限
+    // 更新用户权限函数
     async function updateUserPermission(userId, permission, value) {
-      // 查找该用户的权限记录
       const { data: permData } = await sb
         .from('permissions')
         .select('id')
         .eq('user_id', userId)
         .single();
-      
+
       if (permData) {
-        // 更新现有权限
         await sb
           .from('permissions')
           .update({ [permission]: value })
           .eq('id', permData.id);
       } else {
-        // 创建新权限记录
         await sb
           .from('permissions')
           .insert([{ user_id: userId, [permission]: value }]);
       }
     }
 
-    // 添加新用户（管理员功能）
+    // 添加新用户函数（管理员功能）
     async function addUser() {
       const email = document.getElementById('new-user-email').value;
       const role = document.getElementById('new-user-role').value;
-      
+
       if (!email) {
         alert('请输入用户邮箱');
         return;
       }
-      
+
       try {
-        // 创建用户（初始密码123456）
         const { data: authData } = await sb.auth.admin.createUser({
           email,
           password: '123456',
           email_confirm: true
         });
-        
-        // 保存用户信息
+
         await sb.from('users').insert([{
           id: authData.user.id,
           email,
           role,
           is_admin: false
         }]);
-        
-        // 初始化权限
+
         await sb.from('permissions').insert([{
           user_id: authData.user.id,
           can_create: false,
@@ -514,8 +222,7 @@
           can_edit: false,
           can_delete: false
         }]);
-        
-        // 刷新用户列表
+
         loadAllUsers();
         document.getElementById('new-user-email').value = '';
         alert('用户添加成功，初始密码：123456');
@@ -524,14 +231,11 @@
       }
     }
 
-    // ==== 任务管理功能 ====
-    // 加载任务列表（按状态分组）
+    // 加载任务列表函数（按状态分组）
     async function loadTasks() {
-      // 获取所有任务
       const { data } = await sb.from('tasks').select('*');
       const tasks = data || [];
-      
-      // 状态与DOM映射（保留原有7个状态）
+
       const statusConfig = [
         { status: '评审中', id: 'tasks-reviewing', countId: 'count-reviewing' },
         { status: '待分配', id: 'tasks-to-assign', countId: 'count-to-assign' },
@@ -541,17 +245,14 @@
         { status: '待签发', id: 'tasks-to-sign', countId: 'count-to-sign' },
         { status: '已完成', id: 'tasks-completed', countId: 'count-completed' }
       ];
-      
-      // 清空并渲染每个状态的任务
+
       statusConfig.forEach(({ status, id, countId }) => {
         const tasksOfStatus = tasks.filter(task => task.status === status);
         const container = document.getElementById(id);
         const countEl = document.getElementById(countId);
-        
-        // 更新任务数量
+
         countEl.textContent = tasksOfStatus.length;
-        
-        // 渲染任务卡片
+
         container.innerHTML = tasksOfStatus.map(task => `
           <div class="task-card border-primary" onclick="showTaskActions('${task.id}')">
             <div class="font-medium text-sm mb-1">${task.title}</div>
@@ -569,40 +270,33 @@
           </div>
         `).join('');
       });
-      
-      // 更新通知提醒
+
       updateNotifications(tasks);
     }
 
-    // 显示任务操作弹窗
+    // 显示任务操作弹窗函数
     async function showTaskActions(taskId) {
       currentTaskId = taskId;
-      
-      // 获取任务详情
       const { data: task } = await sb
         .from('tasks')
         .select('*')
         .eq('id', taskId)
         .single();
-      
-      // 根据任务状态生成操作按钮
+
       let actionsHtml = '';
-      
-      // 编辑
+
       if (currentPermissions.can_edit) {
         actionsHtml += `<button onclick="setAction('edit')" class="w-full text-left btn-action bg-gray-100 mb-1">
           <i class="fa fa-pencil mr-1"></i> 编辑任务
         </button>`;
       }
-      
-      // 分配（仅评审中状态）
+
       if (currentPermissions.can_assign && task.status === '评审中') {
         actionsHtml += `<button onclick="setAction('assign')" class="w-full text-left btn-action bg-blue-100 mb-1">
           <i class="fa fa-user-plus mr-1"></i> 分配任务
         </button>`;
       }
-      
-      // 提交（进入下一步）
+
       if (currentPermissions.can_edit) {
         const nextStatus = getNextStatus(task.status);
         if (nextStatus) {
@@ -611,33 +305,30 @@
           </button>`;
         }
       }
-      
-      // 退回（选择上一步）
+
       if (currentPermissions.can_edit && task.status !== '评审中') {
         actionsHtml += `<button onclick="setAction('return')" class="w-full text-left btn-action bg-yellow-100 mb-1">
           <i class="fa fa-arrow-left mr-1"></i> 退回任务
         </button>`;
       }
-      
-      // 删除
+
       if (currentPermissions.can_delete) {
         actionsHtml += `<button onclick="setAction('delete')" class="w-full text-left btn-action bg-red-100">
           <i class="fa fa-trash mr-1"></i> 删除任务
         </button>`;
       }
-      
-      // 显示弹窗
+
       document.getElementById('task-action-title').textContent = `操作：${task.title}`;
       document.getElementById('task-action-content').innerHTML = actionsHtml;
       document.getElementById('task-action-modal').classList.remove('hidden');
       document.getElementById('task-action-modal').classList.add('flex');
     }
 
-    // 设置当前操作
+    // 设置当前操作函数
     function setAction(action) {
       currentAction = action;
       document.getElementById('task-action-modal').classList.add('hidden');
-      
+
       switch (action) {
         case 'edit':
           showEditTaskForm();
@@ -657,19 +348,18 @@
       }
     }
 
-    // 编辑任务
+    // 编辑任务函数
     async function showEditTaskForm() {
       const { data: task } = await sb
         .from('tasks')
         .select('*')
         .eq('id', currentTaskId)
         .single();
-      
+
       document.getElementById('task-title').value = task.title;
       document.getElementById('task-description').value = task.description || '';
       document.getElementById('task-due-date').value = task.due_date || '';
-      
-      // 替换保存按钮逻辑为更新
+
       const confirmBtn = document.querySelector('#create-task-modal button:last-child');
       confirmBtn.onclick = async () => {
         const updatedData = {
@@ -677,23 +367,21 @@
           description: document.getElementById('task-description').value,
           due_date: document.getElementById('task-due-date').value
         };
-        
+
         await sb.from('tasks').update(updatedData).eq('id', currentTaskId);
         hideCreateTaskModal();
       };
-      
-      // 显示弹窗
+
       document.getElementById('create-task-modal').classList.remove('hidden');
       document.getElementById('create-task-modal').classList.add('flex');
     }
 
-    // 分配任务
+    // 分配任务函数
     function showAssignTaskForm() {
-      // 生成用户选择列表
       const userOptions = allUsers.map(user => `
         <option value="${user.id}">${user.email} (${user.role})</option>
       `).join('');
-      
+
       const content = `
         <div class="mb-3">
           <label class="block text-gray-700 text-sm mb-1">选择负责人（可多选）</label>
@@ -703,7 +391,7 @@
           <div class="text-xs text-gray-500 mt-1">按住Ctrl键可多选</div>
         </div>
       `;
-      
+
       document.getElementById('task-action-title').textContent = '分配任务';
       document.getElementById('task-action-content').innerHTML = content;
       document.getElementById('task-action-confirm').onclick = saveAssignedUsers;
@@ -711,263 +399,26 @@
       document.getElementById('task-action-modal').classList.add('flex');
     }
 
-    // 保存分配的用户
+    // 保存分配的用户函数
     async function saveAssignedUsers() {
       const selectEl = document.getElementById('assign-users');
       const assignees = Array.from(selectEl.selectedOptions).map(option => option.value);
-      
+
       if (assignees.length === 0) {
         alert('请至少选择一位负责人');
         return;
       }
-      
-      // 更新任务负责人，并将状态改为“待分配”
+
       await sb.from('tasks')
         .update({ assignees, status: '待分配' })
         .eq('id', currentTaskId);
-      
+
       hideTaskActionModal();
     }
 
-    // 提交任务（进入下一步）
+    // 提交任务函数（进入下一步）
     async function confirmSubmitTask() {
       const { data: task } = await sb
         .from('tasks')
         .select('status')
-        .eq('id', currentTaskId)
-        .single();
-      
-      const nextStatus = getNextStatus(task.status);
-      if (!nextStatus) return;
-      
-      if (confirm(`确定要将任务提交到“${nextStatus}”吗？`)) {
-        await sb.from('tasks').update({ status: nextStatus }).eq('id', currentTaskId);
-      }
-    }
-
-    // 退回任务（选择上一步）
-    function showReturnTaskForm() {
-      // 生成可退回的状态列表
-      const statuses = [
-        '评审中', '待分配', '进行中', '审核中', '复核中', '待签发'
-      ];
-      
-      const { data: task } = await sb
-        .from('tasks')
-        .select('status')
-        .eq('id', currentTaskId)
-        .single();
-      
-      // 排除当前状态
-      const availableStatuses = statuses.filter(s => s !== task.status);
-      
-      const statusOptions = availableStatuses.map(status => `
-        <option value="${status}">${status}</option>
-      `).join('');
-      
-      const content = `
-        <div class="mb-3">
-          <label class="block text-gray-700 text-sm mb-1">选择退回状态</label>
-          <select id="return-status" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
-            ${statusOptions}
-          </select>
-        </div>
-      `;
-      
-      document.getElementById('task-action-title').textContent = '退回任务';
-      document.getElementById('task-action-content').innerHTML = content;
-      document.getElementById('task-action-confirm').onclick = saveReturnStatus;
-      document.getElementById('task-action-modal').classList.remove('hidden');
-      document.getElementById('task-action-modal').classList.add('flex');
-    }
-
-    // 保存退回状态
-    async function saveReturnStatus() {
-      const status = document.getElementById('return-status').value;
-      await sb.from('tasks').update({ status }).eq('id', currentTaskId);
-      hideTaskActionModal();
-    }
-
-    // 删除任务
-    async function confirmDeleteTask() {
-      if (confirm('确定要删除此任务吗？此操作不可恢复。')) {
-        await sb.from('tasks').delete().eq('id', currentTaskId);
-      }
-    }
-
-    // 创建任务
-    function showCreateTaskModal() {
-      // 重置表单
-      document.getElementById('task-title').value = '';
-      document.getElementById('task-description').value = '';
-      document.getElementById('task-due-date').value = '';
-      
-      // 恢复保存按钮逻辑为创建
-      const confirmBtn = document.querySelector('#create-task-modal button:last-child');
-      confirmBtn.onclick = saveTask;
-      
-      document.getElementById('create-task-modal').classList.remove('hidden');
-      document.getElementById('create-task-modal').classList.add('flex');
-    }
-
-    function hideCreateTaskModal() {
-      document.getElementById('create-task-modal').classList.add('hidden');
-      document.getElementById('create-task-modal').classList.remove('flex');
-    }
-
-    async function saveTask() {
-      const title = document.getElementById('task-title').value;
-      if (!title) {
-        alert('请输入任务标题');
-        return;
-      }
-      
-      // 创建新任务（默认状态：评审中）
-      await sb.from('tasks').insert([{
-        title,
-        description: document.getElementById('task-description').value,
-        due_date: document.getElementById('task-due-date').value,
-        status: '评审中',
-        created_by: currentUser.id
-      }]);
-      
-      hideCreateTaskModal();
-    }
-
-    // ==== 导入导出功能 ====
-    function exportTasks() {
-      alert('已触发导出，实际会生成包含所有任务的CSV文件');
-      // 实际实现中，这里会将任务数据转换为CSV并下载
-    }
-
-    function importTasks(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const content = e.target.result;
-          const lines = content.split('\n').filter(line => line.trim());
-          if (lines.length < 2) {
-            alert('导入文件格式不正确');
-            return;
-          }
-          
-          // 跳过表头，从第二行开始处理
-          for (let i = 1; i < lines.length; i++) {
-            const [title, description, dueDate, actualCompleteDate] = lines[i].split(',');
-            
-            // 自动判断状态
-            let status = '评审中';
-            if (actualCompleteDate) status = '已完成';
-            
-            // 导入任务
-            await sb.from('tasks').insert([{
-              title,
-              description,
-              due_date: dueDate || null,
-              status,
-              created_by: currentUser.id
-            }]);
-          }
-          
-          alert(`成功导入 ${lines.length - 1} 个任务`);
-        } catch (error) {
-          alert('导入失败：' + error.message);
-        }
-      };
-      reader.readAsText(file);
-    }
-
-    // ==== 团队管理弹窗控制 ====
-    function showTeamManagement() {
-      document.getElementById('team-management-modal').classList.remove('hidden');
-      document.getElementById('team-management-modal').classList.add('flex');
-    }
-
-    function hideTeamManagement() {
-      document.getElementById('team-management-modal').classList.add('hidden');
-      document.getElementById('team-management-modal').classList.remove('flex');
-    }
-
-    // ==== 任务操作弹窗控制 ====
-    function hideTaskActionModal() {
-      document.getElementById('task-action-modal').classList.add('hidden');
-      document.getElementById('task-action-modal').classList.remove('flex');
-      currentTaskId = null;
-      currentAction = null;
-    }
-
-    async function confirmTaskAction() {
-      // 由具体操作函数实现
-    }
-
-    // ==== 实时同步 ====
-    function subscribeToTasks() {
-      // 订阅任务表变化，自动刷新列表
-      sb.channel('tasks')
-        .on('postgres_changes', { event: '*', table: 'tasks' }, () => {
-          loadTasks();
-        })
-        .subscribe();
-    }
-
-    // ==== 通知提醒 ====
-    function updateNotifications(tasks) {
-      // 统计当前用户需要处理的任务
-      const myTasks = tasks.filter(task => 
-        task.assignees && task.assignees.includes(currentUser.id)
-      );
-      
-      // 更新通知数字
-      const countEl = document.getElementById('notification-count');
-      if (myTasks.length > 0) {
-        countEl.textContent = myTasks.length;
-        countEl.classList.remove('hidden');
-      } else {
-        countEl.classList.add('hidden');
-      }
-      
-      // 检查超期任务
-      const overdueTasks = tasks.filter(task => 
-        task.due_date && new Date(task.due_date) < new Date() && task.status !== '已完成'
-      );
-      
-      if (overdueTasks.length > 0 && !localStorage.getItem('overdue-notified')) {
-        alert(`有 ${overdueTasks.length} 个任务已超期，请及时处理！`);
-        localStorage.setItem('overdue-notified', 'true'); // 避免重复提醒
-      }
-    }
-
-    // ==== 辅助函数 ====
-    // 获取下一状态
-    function getNextStatus(currentStatus) {
-      const statusFlow = {
-        '评审中': '待分配',
-        '待分配': '进行中',
-        '进行中': '审核中',
-        '审核中': '复核中',
-        '复核中': '待签发',
-        '待签发': '已完成'
-      };
-      return statusFlow[currentStatus];
-    }
-
-    // 格式化日期
-    function formatDate(dateString) {
-      if (!dateString) return '';
-      const date = new Date(dateString);
-      return date.toLocaleDateString('zh-CN');
-    }
-
-    // 获取负责人名称
-    function getAssigneeNames(assigneeIds) {
-      return assigneeIds.map(id => {
-        const user = allUsers.find(u => u.id === id);
-        return user ? user.email.split('@')[0] : '未知';
-      }).join('、');
-    }
-  </script>
-</body>
-</html>
+        .eq('
