@@ -573,27 +573,49 @@
             const [users, setUsers] = useState([]);
             const [loading, setLoading] = useState(true);
             const [error, setError] = useState('');
+            const [searchTerm, setSearchTerm] = useState('');
+            const [inviteEmail, setInviteEmail] = useState('');
 
-            // 当弹窗打开时，调用云函数获取用户列表
+            // 使用 useCallback 将 fetchUsers 函数包裹起来，以便在多个地方复用它，并提升性能
+            const fetchUsers = useCallback(async () => {
+                setLoading(true);
+                setError('');
+                try {
+                    // 步骤 1: 像以前一样，获取所有用户列表
+                    const { data, error } = await supabase.functions.invoke('get-users');
+                    if (error) throw error;
+
+                    // 步骤 2: 获取当前登录用户的信息
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const currentUserId = session.user.id;
+
+                    // 步骤 3: 从列表中过滤掉当前登录的用户
+                    const filteredData = data.filter(user => user.id !== currentUserId);
+
+                    setUsers(filteredData); // 将过滤后的列表设置到 state 中
+
+                } catch (e) {
+                    setError('获取用户列表失败: ' + e.message);
+                } finally {
+                    setLoading(false);
+                }
+            }, []); // 空依赖数组意味着这个函数本身不会因为组件重渲染而重新创建
+
+            // 这个 useEffect 的作用是：当弹窗被打开(isOpen变为true)时，调用一次我们上面定义的 fetchUsers 函数
             useEffect(() => {
                 if (isOpen) {
-                    const fetchUsers = async () => {
-                        setLoading(true);
-                        setError('');
-                        try {
-                            // 调用我们之前创建的 get-users 云函数
-                            const { data, error } = await supabase.functions.invoke('get-users');
-                            if (error) throw error;
-                            setUsers(data);
-                        } catch (e) {
-                            setError('获取用户列表失败: ' + e.message);
-                        } finally {
-                            setLoading(false);
-                        }
-                    };
                     fetchUsers();
                 }
-            }, [isOpen]);
+            }, [isOpen, fetchUsers]);
+            const filteredUsers = useMemo(() => {
+                if (!searchTerm) {
+                    return users; // 如果搜索框为空，直接返回所有用户
+                }
+                // 返回邮箱中包含搜索词的用户（不区分大小写）
+                return users.filter(user =>
+                    user.email.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+            }, [users, searchTerm]);
 
             // 点击“批准”按钮时调用的函数
             const handleApproveUser = async (userId) => {
@@ -616,6 +638,70 @@
                     showNotification('批准用户失败: ' + e.message, 'error');
                 }
             };
+            // 点击“撤销”按钮时调用的函数
+            const handleRevokeUser = async (userId) => {
+                try {
+                    // 调用我们刚刚创建的 revoke-user 云函数
+                    const { data, error } = await supabase.functions.invoke('revoke-user', {
+                        body: { userId },
+                    });
+                    if (error) throw error;
+
+                    // 撤销成功后，手动更新前端UI
+                    setUsers(currentUsers =>
+                        currentUsers.map(user =>
+                            user.id === userId ? { ...user, role: 'pending' } : user
+                        )
+                    );
+                    showNotification('用户权限已撤销！');
+
+                } catch (e) {
+                    showNotification('撤销用户权限失败: ' + e.message, 'error');
+                }
+            };
+            // 点击“删除”按钮时调用的函数
+            const handleDeleteUser = async (userId, userEmail) => {
+                // 使用 window.confirm 弹出一个二次确认框
+                if (window.confirm(`你确定要永久删除用户 ${userEmail} 吗？\n此操作无法撤销！`)) {
+                    try {
+                        // 调用我们刚刚创建的 delete-user 云函数
+                        const { data, error } = await supabase.functions.invoke('delete-user', {
+                            body: { userId },
+                        });
+                        if (error) throw error;
+
+                        // 删除成功后，从前端列表中移除该用户
+                        setUsers(currentUsers =>
+                            currentUsers.filter(user => user.id !== userId)
+                        );
+                        showNotification('用户已永久删除！');
+
+                    } catch (e) {
+                        showNotification('删除用户失败: ' + e.message, 'error');
+                    }
+                }
+            };
+            // 点击“邀请”按钮时调用的函数
+            const handleInviteUser = async () => {
+                if (!inviteEmail) {
+                    showNotification('请输入要邀请的邮箱地址。', 'error');
+                    return;
+                }
+                try {
+                    // 调用我们刚刚创建的 invite-user 云函数
+                    const { data, error } = await supabase.functions.invoke('invite-user', {
+                        body: { email: inviteEmail },
+                    });
+                    if (error) throw error;
+
+                    showNotification(data.message || '邀请成功！');
+                    setInviteEmail(''); // 清空输入框
+                    fetchUsers(); // 重新加载用户列表，以显示新邀请的用户
+
+                } catch (e) {
+                    showNotification('邀请用户失败: ' + e.message, 'error');
+                }
+            };
 
             if (!isOpen) return null;
 
@@ -630,41 +716,141 @@
                             {loading && <p className="text-center">正在加载用户列表...</p>}
                             {error && <p className="text-center text-red-500">{error}</p>}
                             {!loading && !error && (
-                                <div className="space-y-2">
-                                    <div className="grid grid-cols-3 gap-4 font-semibold border-b pb-2 dark:border-slate-700 text-sm text-slate-500 dark:text-slate-400">
-                                        <div>用户邮箱</div>
-                                        <div>角色</div>
-                                        <div className="text-center">操作</div>
-                                    </div>
-                                    {users.map(user => (
-                                        <div key={user.id} className="grid grid-cols-3 gap-4 items-center p-2 rounded hover:bg-slate-100 dark:hover:bg-slate-800">
-                                            <div className="truncate text-sm" title={user.email}>{user.email}</div>
-                                            <div>
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.role === 'admin' ? 'bg-indigo-200 text-indigo-800' :
-                                                    user.role === 'approved' ? 'bg-green-200 text-green-800' :
-                                                        'bg-yellow-200 text-yellow-800'
-                                                    }`}>
-                                                    {user.role}
-                                                </span>
-                                            </div>
-                                            <div className="text-center">
-                                                {user.role === 'pending' && (
-                                                    <button
-                                                        onClick={() => handleApproveUser(user.id)}
-                                                        className="px-3 py-1 text-xs font-semibold text-white bg-emerald-500 rounded-md hover:bg-emerald-600"
-                                                    >
-                                                        批准
-                                                    </button>
-                                                )}
-                                            </div>
+                                <div className="space-y-4">
+                                    {/* --- 邀请新用户表单 --- */}
+                                    <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border dark:border-slate-200 dark:border-slate-700">
+                                        <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">邀请新成员</label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="email"
+                                                placeholder="输入新成员的邮箱地址"
+                                                className="flex-grow pl-4 pr-4 py-2 w-full border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
+                                                value={inviteEmail}
+                                                onChange={(e) => setInviteEmail(e.target.value)}
+                                            />
+                                            <button
+                                                onClick={handleInviteUser}
+                                                className="px-4 py-2 font-semibold text-white bg-emerald-500 rounded-md hover:bg-emerald-600 flex-shrink-0"
+                                            >
+                                                发送邀请
+                                            </button>
                                         </div>
-                                    ))}
+                                    </div>
+
+                                    {/* --- 搜索框 --- */}
+                                    <div className="relative">
+                                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="按邮箱搜索用户..."
+                                            className="pl-10 pr-4 py-2 w-full border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                        />
+                                    </div>
+
+                                    {/* --- 用户列表 --- */}
+                                    <div className="space-y-2">
+                                        <div className="grid grid-cols-3 gap-4 font-semibold border-b pb-2 dark:border-slate-700 text-sm text-slate-500 dark:text-slate-400">
+                                            <div>用户邮箱</div>
+                                            <div>角色</div>
+                                            <div className="text-center">操作</div>
+                                        </div>
+                                        {filteredUsers.map(user => (
+                                            <div key={user.id} className="grid grid-cols-3 gap-4 items-center p-2 rounded hover:bg-slate-100 dark:hover:bg-slate-800">
+                                                <div className="truncate text-sm" title={user.email}>{user.email}</div>
+                                                <div>
+                                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.role === 'admin' ? 'bg-indigo-200 text-indigo-800' :
+                                                            user.role === 'approved' ? 'bg-green-200 text-green-800' :
+                                                                'bg-yellow-200 text-yellow-800'
+                                                        }`}>
+                                                        {user.role}
+                                                    </span>
+                                                </div>
+                                                <div className="text-center space-x-2">
+                                                    {user.role === 'pending' && (
+                                                        <button
+                                                            onClick={() => handleApproveUser(user.id)}
+                                                            className="px-3 py-1 text-xs font-semibold text-white bg-emerald-500 rounded-md hover:bg-emerald-600"
+                                                        >
+                                                            批准
+                                                        </button>
+                                                    )}
+                                                    {user.role === 'approved' && (
+                                                        <button
+                                                            onClick={() => handleRevokeUser(user.id)}
+                                                            className="px-3 py-1 text-xs font-semibold text-white bg-red-500 rounded-md hover:bg-red-600"
+                                                        >
+                                                            撤销
+                                                        </button>
+                                                    )}
+                                                    {user.role !== 'admin' && (
+                                                        <button
+                                                            onClick={() => handleDeleteUser(user.id, user.email)}
+                                                            className="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-slate-700 dark:text-gray-300 dark:hover:bg-slate-600"
+                                                        >
+                                                            删除
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
                         <footer className="p-4 flex justify-end gap-4 bg-gray-100 dark:bg-slate-800 rounded-b-xl border-t dark:border-slate-700">
                             <button onClick={onClose} className="px-6 py-2 rounded-md bg-gray-200 hover:bg-gray-300 dark:bg-slate-600 dark:hover:bg-slate-500 dark:text-slate-200 font-semibold">关闭</button>
                         </footer>
+                    </div>
+                </div>
+            );
+        };
+        const SetPassword = ({ onPasswordSet }) => {
+            const [password, setPassword] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+            const [message, setMessage] = useState('欢迎！请设置您的初始密码。');
+
+            const handleSetPassword = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError(null);
+                try {
+                    const { error } = await supabase.auth.updateUser({ password: password });
+                    if (error) throw error;
+                    setMessage('密码设置成功！正在带您进入系统...');
+                    // 延迟一小会，然后通知父组件密码已设置成功
+                    setTimeout(() => {
+                        onPasswordSet();
+                    }, 1500);
+                } catch (error) {
+                    setError(error.message);
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col justify-center items-center p-4">
+                    <div className="w-full max-w-md">
+                        <div className="text-center mb-8">
+                            <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">设置密码</h1>
+                        </div>
+                        <div className="bg-white dark:bg-slate-800 shadow-xl rounded-xl p-8">
+                            <form onSubmit={handleSetPassword}>
+                                <p className="text-center text-slate-500 dark:text-slate-400 mb-4">{message}</p>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">新密码</label>
+                                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" required />
+                                </div>
+                                {error && <p className="mt-4 text-sm text-center text-red-500">{error}</p>}
+                                <div className="mt-8">
+                                    <button type="submit" disabled={loading} className="w-full px-6 py-3 rounded-md text-white font-semibold bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300">
+                                        {loading ? '设置中...' : '确认并登录'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
             );
@@ -736,34 +922,41 @@
             const [session, setSession] = useState(null);
             const [loading, setLoading] = useState(true);
             const [authError, setAuthError] = useState(null);
+            // 新增一个 state，用于控制显示哪个界面
+            const [view, setView] = useState('loading'); // loading, login, app, set_password
 
             useEffect(() => {
                 // 首次加载时，先获取一次 session
                 supabase.auth.getSession().then(({ data: { session } }) => {
                     if (session && session.user.app_metadata?.role === 'pending') {
                         supabase.auth.signOut();
-                        setAuthError("您的账户正在等待管理员批准，请联系管理员激活账号。");
-                        setSession(null);
-                    } else {
+                        setAuthError("您的账户正在等待管理员批准。请联系管理员激活账号。");
+                        setView('login');
+                    } else if (session) {
                         setSession(session);
+                        setView('app');
+                    } else {
+                        setView('login');
                     }
                     setLoading(false);
                 });
 
-                // 然后监听后续的状态变化
-                const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-                    // 当登录状态发生变化时，先检查角色
-                    if (session && session.user.app_metadata?.role === 'pending') {
-                        // 如果是'待审批'用户，立刻强制他登出
+                // 监听后续的状态变化
+                const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+                    if (event === 'PASSWORD_RECOVERY') {
+                        // 当用户点击了邀请链接或密码重置链接时，会触发这个事件
+                        setView('set_password');
+                    } else if (session && session.user.app_metadata?.role === 'pending') {
                         await supabase.auth.signOut();
-                        // 设置一个专门的错误信息
-                        setAuthError("您的账户正在等待管理员批准，请联系管理员激活账号。");
-                        // 确保 session 状态为空
-                        setSession(null);
-                    } else {
-                        // 如果是正常用户或未登录，就正常更新 session
-                        setAuthError(null); // 清除错误信息
+                        setAuthError("您的账户正在等待管理员批准。请联系管理员激活账号。");
+                        setView('login');
+                    } else if (session) {
+                        setAuthError(null);
                         setSession(session);
+                        setView('app');
+                    } else {
+                        setView('login');
+                        setSession(null);
                     }
                     setLoading(false);
                 });
@@ -771,6 +964,7 @@
                 return () => subscription.unsubscribe();
             }, []);
 
+            // 根据 view 的状态，来决定渲染哪个组件
             if (loading) {
                 return (
                     <div className="flex justify-center items-center h-screen bg-slate-50 dark:bg-slate-900">
@@ -779,13 +973,15 @@
                 );
             }
 
-            if (!session) {
-                // 如果没有 session, 渲染 Login 组件, 并把我们设置的错误信息传给它
-                return <Login authError={authError} />;
-            } else {
-                // 只有在 session 存在且用户不是 'pending' 状态时，才渲染主应用
+            if (view === 'set_password') {
+                return <SetPassword onPasswordSet={() => setView('app')} />;
+            }
+
+            if (view === 'app' && session) {
                 return <App session={session} />;
             }
+
+            return <Login authError={authError} />;
         };
 
         // --- Main App Component ---
