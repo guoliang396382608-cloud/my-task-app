@@ -919,70 +919,67 @@
 
         // --- 验证包装器 ---
         const AuthWrapper = () => {
-            const [session, setSession] = useState(null);
-            const [loading, setLoading] = useState(true);
-            const [authError, setAuthError] = useState(null);
-            // 新增一个 state，用于控制显示哪个界面
-            const [view, setView] = useState('loading'); // loading, login, app, set_password
+    const [session, setSession] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [authError, setAuthError] = useState(null);
+    // 'view' state 现在是决定显示哪个界面的唯一依据
+    const [view, setView] = useState('loading'); // loading, login, app, set_password
 
-            useEffect(() => {
-                // 首次加载时，先获取一次 session
-                supabase.auth.getSession().then(({ data: { session } }) => {
-                    if (session && session.user.app_metadata?.role === 'pending') {
-                        supabase.auth.signOut();
-                        setAuthError("您的账户正在等待管理员批准。请联系管理员激活账号。");
-                        setView('login');
-                    } else if (session) {
-                        setSession(session);
-                        setView('app');
-                    } else {
-                        setView('login');
-                    }
-                    setLoading(false);
-                });
+    useEffect(() => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            let currentView = 'login'; // 默认视图
 
-                // 监听后续的状态变化
-                const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-                    if (event === 'PASSWORD_RECOVERY') {
-                        // 当用户点击了邀请链接或密码重置链接时，会触发这个事件
-                        setView('set_password');
-                    } else if (session && session.user.app_metadata?.role === 'pending') {
-                        await supabase.auth.signOut();
-                        setAuthError("您的账户正在等待管理员批准。请联系管理员激活账号。");
-                        setView('login');
-                    } else if (session) {
-                        setAuthError(null);
-                        setSession(session);
-                        setView('app');
-                    } else {
-                        setView('login');
-                        setSession(null);
-                    }
-                    setLoading(false);
-                });
+            if (session) {
+                const user = session.user;
 
-                return () => subscription.unsubscribe();
-            }, []);
-
-            // 根据 view 的状态，来决定渲染哪个组件
-            if (loading) {
-                return (
-                    <div className="flex justify-center items-center h-screen bg-slate-50 dark:bg-slate-900">
-                        <p className="text-lg text-slate-500">正在初始化...</p>
-                    </div>
-                );
+                // 关键检查 1: 这是不是一个刚接受邀请的新用户？
+                // 如果最后登录时间等于创建时间，说明是第一次登录，需要设置密码。
+                if (user.last_sign_in_at === user.created_at) {
+                    currentView = 'set_password';
+                }
+                // 关键检查 2: 这是不是一个待审批的用户？
+                else if (user.app_metadata?.role === 'pending') {
+                    await supabase.auth.signOut();
+                    setAuthError("您的账户正在等待管理员批准。请联系管理员激活账号。");
+                    currentView = 'login';
+                }
+                // 如果以上都不是，就是一个正常的登录用户
+                else {
+                    currentView = 'app';
+                }
             }
 
-            if (view === 'set_password') {
-                return <SetPassword onPasswordSet={() => setView('app')} />;
-            }
+            setSession(session);
+            setView(currentView);
+            setLoading(false);
+        });
 
-            if (view === 'app' && session) {
-                return <App session={session} />;
-            }
+        return () => subscription.unsubscribe();
+    }, []);
 
-            return <Login authError={authError} />;
-        };
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-screen bg-slate-50 dark:bg-slate-900">
+                <p className="text-lg text-slate-500">正在初始化...</p>
+            </div>
+        );
+    }
+
+    if (view === 'set_password') {
+        return <SetPassword onPasswordSet={() => {
+            // 密码设置成功后，刷新一下用户信息，然后进入应用
+            supabase.auth.refreshSession();
+            setView('app');
+        }} />;
+    }
+
+    if (view === 'app' && session) {
+        return <App session={session} />;
+    }
+
+    // 所有其他情况都显示登录页
+    return <Login authError={authError} />;
+};
 
         // --- Main App Component ---
         function App({ session }) {
@@ -1397,3 +1394,4 @@
 </body>
 
 </html>
+
