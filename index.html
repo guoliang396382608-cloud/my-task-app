@@ -919,75 +919,10 @@
 
         // --- 验证包装器 ---
         const AuthWrapper = () => {
-    const [session, setSession] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [authError, setAuthError] = useState(null);
-    const [view, setView] = useState('loading'); // loading, login, app, set_password
+    // 我们暂时注释掉所有旧的、复杂的逻辑...
 
-    useEffect(() => {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            let currentView = 'login';
-            let currentAuthError = null;
-
-            if (session) {
-                const user = session.user;
-                
-                // --- 这是最终的、最稳健的判断逻辑 ---
-                let isFirstSignIn = false;
-                // 首先检查 last_sign_in_at 是否存在
-                if (user.last_sign_in_at) {
-                    const createdAt = new Date(user.created_at);
-                    const lastSignInAt = new Date(user.last_sign_in_at);
-                    // 如果存在，再比较时间差
-                    isFirstSignIn = Math.abs(lastSignInAt.getTime() - createdAt.getTime()) < 5000;
-                } else {
-                    // 如果 last_sign_in_at 不存在(为null)，那么这绝对是第一次登录
-                    isFirstSignIn = true;
-                }
-                // --- 判断逻辑结束 ---
-
-                if (isFirstSignIn) {
-                    currentView = 'set_password';
-                } 
-                else if (user.app_metadata?.role === 'pending') {
-                    await supabase.auth.signOut();
-                    currentAuthError = "您的账户正在等待管理员批准。请联系管理员激活账号。";
-                    currentView = 'login';
-                } 
-                else {
-                    currentView = 'app';
-                }
-            }
-            
-            setSession(session);
-            setView(currentView);
-            setAuthError(currentAuthError);
-            setLoading(false);
-        });
-
-        return () => subscription.unsubscribe();
-    }, []);
-
-    if (loading) {
-        return (
-            <div className="flex justify-center items-center h-screen bg-slate-50 dark:bg-slate-900">
-                <p className="text-lg text-slate-500">正在初始化...</p>
-            </div>
-        );
-    }
-    
-    if (view === 'set_password') {
-        return <SetPassword onPasswordSet={() => {
-            supabase.auth.refreshSession();
-            setView('app');
-        }} />;
-    }
-    
-    if (view === 'app' && session) {
-        return <App session={session} />;
-    }
-    
-    return <Login authError={authError} />;
+    // 直接返回 SetPassword 组件进行测试
+    return <SetPassword onPasswordSet={() => alert('密码设置成功！')} />;
 };
 
         // --- Main App Component ---
@@ -1403,6 +1338,7 @@
 </body>
 
 </html>
+
 
 
 
