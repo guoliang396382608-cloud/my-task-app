@@ -925,37 +925,39 @@
     const [view, setView] = useState('loading'); // loading, login, app, set_password
 
     useEffect(() => {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            let currentView = 'login';
-            let currentAuthError = null;
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            // 为了调试，我们可以打印出每次事件的类型
+            console.log('Supabase Auth Event:', event);
 
+            // 优先处理最特殊的事件：密码重置 / 接受邀请
+            // 这两种情况，Supabase都会发出 PASSWORD_RECOVERY 事件
+            if (event === 'PASSWORD_RECOVERY') {
+                setView('set_password');
+                setSession(session); // 保存临时会话，以便后续更新密码
+                setLoading(false);
+                return; // 事件处理完毕，直接返回，不再执行后续逻辑
+            }
+
+            // 如果不是特殊事件，再根据 session 判断
             if (session) {
-                const user = session.user;
-                const createdAt = new Date(user.created_at);
-                const lastSignInAt = new Date(user.last_sign_in_at);
-
-                // 关键检查 1: 这是不是一个刚接受邀请的新用户？
-                // 如果最后登录时间 和 创建时间 几乎相同（比如在5秒内），说明是第一次登录，需要设置密码。
-                const isFirstSignIn = Math.abs(lastSignInAt.getTime() - createdAt.getTime()) < 5000;
-
-                if (isFirstSignIn) {
-                    currentView = 'set_password';
-                } 
-                // 关键检查 2: 这是不是一个待审批的用户？
-                else if (user.app_metadata?.role === 'pending') {
+                // 检查用户是否待审批
+                if (session.user.app_metadata?.role === 'pending') {
                     await supabase.auth.signOut();
-                    currentAuthError = "您的账户正在等待管理员批准。请联系管理员激活账号。";
-                    currentView = 'login';
-                } 
-                // 如果以上都不是，就是一个正常的登录用户
-                else {
-                    currentView = 'app';
+                    setAuthError("您的账户正在等待管理员批准。请联系管理员激活账号。");
+                    setView('login');
+                    setSession(null);
+                } else {
+                    // 正常已登录用户
+                    setAuthError(null);
+                    setView('app');
+                    setSession(session);
                 }
+            } else {
+                // 用户未登录
+                setView('login');
+                setSession(null);
             }
             
-            setSession(session);
-            setView(currentView);
-            setAuthError(currentAuthError);
             setLoading(false);
         });
 
@@ -972,8 +974,9 @@
     
     if (view === 'set_password') {
         return <SetPassword onPasswordSet={() => {
-            supabase.auth.refreshSession(); // 刷新会话信息
-            setView('app'); // 直接进入应用
+            supabase.auth.refreshSession();
+            setView('app');
+
         }} />;
     }
     
@@ -981,7 +984,6 @@
         return <App session={session} />;
     }
     
-    // 所有其他情况都显示登录页
     return <Login authError={authError} />;
 };
 
@@ -1398,5 +1400,6 @@
 </body>
 
 </html>
+
 
 
