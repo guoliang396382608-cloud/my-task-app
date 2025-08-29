@@ -926,38 +926,33 @@
 
     useEffect(() => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            // 为了调试，我们可以打印出每次事件的类型
-            console.log('Supabase Auth Event:', event);
+            let currentView = 'login';
+            let currentAuthError = null;
 
-            // 优先处理最特殊的事件：密码重置 / 接受邀请
-            // 这两种情况，Supabase都会发出 PASSWORD_RECOVERY 事件
-            if (event === 'PASSWORD_RECOVERY') {
-                setView('set_password');
-                setSession(session); // 保存临时会话，以便后续更新密码
-                setLoading(false);
-                return; // 事件处理完毕，直接返回，不再执行后续逻辑
-            }
-
-            // 如果不是特殊事件，再根据 session 判断
             if (session) {
-                // 检查用户是否待审批
-                if (session.user.app_metadata?.role === 'pending') {
+                const user = session.user;
+                const createdAt = new Date(user.created_at);
+                const lastSignInAt = new Date(user.last_sign_in_at);
+
+                // 最终检查逻辑: 如果最后登录时间和创建时间几乎相同，说明是首次通过邀请/确认链接登录
+                const isFirstSignIn = Math.abs(lastSignInAt.getTime() - createdAt.getTime()) < 5000;
+
+                if (isFirstSignIn) {
+                    currentView = 'set_password';
+                } 
+                else if (user.app_metadata?.role === 'pending') {
                     await supabase.auth.signOut();
-                    setAuthError("您的账户正在等待管理员批准。请联系管理员激活账号。");
-                    setView('login');
-                    setSession(null);
-                } else {
-                    // 正常已登录用户
-                    setAuthError(null);
-                    setView('app');
-                    setSession(session);
+                    currentAuthError = "您的账户正在等待管理员批准。请联系管理员激活账号。";
+                    currentView = 'login';
+                } 
+                else {
+                    currentView = 'app';
                 }
-            } else {
-                // 用户未登录
-                setView('login');
-                setSession(null);
             }
-            
+
+            setSession(session);
+            setView(currentView);
+            setAuthError(currentAuthError);
             setLoading(false);
         });
 
@@ -971,19 +966,18 @@
             </div>
         );
     }
-    
+
     if (view === 'set_password') {
         return <SetPassword onPasswordSet={() => {
             supabase.auth.refreshSession();
             setView('app');
-
         }} />;
     }
-    
+
     if (view === 'app' && session) {
         return <App session={session} />;
     }
-    
+
     return <Login authError={authError} />;
 };
 
@@ -1400,6 +1394,7 @@
 </body>
 
 </html>
+
 
 
 
