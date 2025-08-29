@@ -931,11 +931,20 @@
 
             if (session) {
                 const user = session.user;
-                const createdAt = new Date(user.created_at);
-                const lastSignInAt = new Date(user.last_sign_in_at);
-
-                // 最终检查逻辑: 如果最后登录时间和创建时间几乎相同（比如在5秒内），说明是首次通过邀请/确认链接登录
-                const isFirstSignIn = Math.abs(lastSignInAt.getTime() - createdAt.getTime()) < 5000;
+                
+                // --- 这是最终的、最稳健的判断逻辑 ---
+                let isFirstSignIn = false;
+                // 首先检查 last_sign_in_at 是否存在
+                if (user.last_sign_in_at) {
+                    const createdAt = new Date(user.created_at);
+                    const lastSignInAt = new Date(user.last_sign_in_at);
+                    // 如果存在，再比较时间差
+                    isFirstSignIn = Math.abs(lastSignInAt.getTime() - createdAt.getTime()) < 5000;
+                } else {
+                    // 如果 last_sign_in_at 不存在(为null)，那么这绝对是第一次登录
+                    isFirstSignIn = true;
+                }
+                // --- 判断逻辑结束 ---
 
                 if (isFirstSignIn) {
                     currentView = 'set_password';
@@ -969,8 +978,8 @@
     
     if (view === 'set_password') {
         return <SetPassword onPasswordSet={() => {
-            supabase.auth.refreshSession(); // 刷新会话信息
-            setView('app'); // 直接进入应用
+            supabase.auth.refreshSession();
+            setView('app');
         }} />;
     }
     
@@ -978,7 +987,6 @@
         return <App session={session} />;
     }
     
-    // 所有其他情况都显示登录页
     return <Login authError={authError} />;
 };
 
@@ -1395,6 +1403,7 @@
 </body>
 
 </html>
+
 
 
 
