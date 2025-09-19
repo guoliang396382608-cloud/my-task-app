@@ -5707,23 +5707,29 @@
             const [authError, setAuthError] = useState(null);
 
             useEffect(() => {
-                // 首次加载时获取 session
-                supabase.auth.getSession().then(({ data: { session } }) => {
-                    setSession(session);
-                    setLoading(false);
-                });
-
-                // 监听后续状态变化
-                const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-                    if (session && session.user.app_metadata?.role === 'pending') {
+                const handleAuthChange = async (session) => {
+                    // --- 核心修复：采用更严格的“白名单”验证逻辑 ---
+                    if (session && session.user.app_metadata?.role !== 'approved') {
+                        // 如果用户已登录，但角色不是 'approved' (包括新用户和被撤销的用户)
                         await supabase.auth.signOut();
                         setAuthError("您的账户正在等待管理员批准。请联系管理员激活账号。");
                         setSession(null);
                     } else {
+                        // 如果用户角色是 'approved'，或者用户未登录 (session is null)
                         setAuthError(null);
                         setSession(session);
                     }
                     setLoading(false);
+                };
+
+                // 首次加载时获取 session
+                supabase.auth.getSession().then(({ data: { session } }) => {
+                    handleAuthChange(session);
+                });
+
+                // 监听后续状态变化
+                const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+                    handleAuthChange(session);
                 });
 
                 return () => subscription.unsubscribe();
