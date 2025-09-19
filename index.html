@@ -5539,6 +5539,7 @@
             const strengthLabels = ['很弱', '较弱', '中等', '良好', '很强'];
 // --- 辅助函数：翻译常见的认证错误信息 ---
             const translateAuthError = (message) => {
+                if (message.includes("Email not confirmed")) return "您的邮箱尚未验证，请检查收件箱并点击验证链接。";
                 if (message.includes("User already registered")) return "此邮箱地址已被注册，请直接登录或找回密码。";
                 // --- 新增：专门翻译“is invalid”错误 ---
                 if (message.includes("is invalid")) {
@@ -5577,6 +5578,7 @@
                             email,
                             password,
                             options: {
+                                emailRedirectTo: 'https://guoliang396382608-cloud.github.io/my-task-app/',
                                 data: {
                                     display_name: displayName,
                                     department: department,
@@ -8089,4 +8091,3 @@
 </body>
 
 </html>
-
