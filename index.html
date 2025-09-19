@@ -5536,7 +5536,17 @@
             const passwordStrength = useMemo(() => getPasswordStrength(password), [password]);
             const strengthColors = ['bg-gray-300', 'bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500'];
             const strengthLabels = ['很弱', '较弱', '中等', '良好', '很强'];
-
+// --- 辅助函数：翻译常见的认证错误信息 ---
+            const translateAuthError = (message) => {
+                if (message.includes("User already registered")) return "此邮箱地址已被注册，请直接登录或找回密码。";
+                // --- 新增：专门翻译“is invalid”错误 ---
+                if (message.includes("is invalid")) {
+                    return "您输入的邮箱地址格式无效，请检查后重试。";}
+                if (message.includes("Invalid login credentials")) return "邮箱或密码错误，请检查后重试。";
+                if (message.includes("Password should be at least 6 characters")) return "密码长度至少需要6位。";
+                if (message.includes("Unable to validate email address: invalid format")) return "请输入有效的邮箱地址。";
+                return message; // 如果没有匹配的翻译，则返回原始信息
+            };
             const handlePasswordReset = async (e) => { e.preventDefault(); setLoading(true); setError(null); setMessage(null); try { const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin }); if (error) throw error; if (isMounted.current) setMessage('密码重置链接已发送，请检查您的邮箱。'); } catch (error) { if (isMounted.current) setError(error.message); } finally { if (isMounted.current) setLoading(false); } };
             const handleAuth = async (e) => {
                 e.preventDefault();
@@ -5546,6 +5556,9 @@
                 try {
                     let response;
                     if (view === 'sign_up') {
+                        if (password !== confirmPassword) {
+                            throw new Error("两次输入的密码不一致，请检查。");
+                        }
                         if (!department) {
                             throw new Error("请选择一个部门。");
                         }
@@ -5560,8 +5573,17 @@
                                 }
                             }
                         });
-                        if (!response.error) {
-                            if (isMounted.current) setMessage('注册成功！请检查您的邮箱以完成验证。');
+                        if (response.error) {
+                            throw response.error;
+                        }
+
+                        // --- 核心修复：检查返回数据，判断是否为重复注册 ---
+                        if (response.data.user && response.data.user.identities && response.data.user.identities.length === 0) {
+                             throw new Error("User already registered"); // 手动抛出一个可识别的错误
+                        }
+
+                        if (isMounted.current) {
+                            setMessage('注册成功！请检查您的邮箱以完成验证。');
                         }
                     } else {
                         response = await supabase.auth.signInWithPassword({ email, password });
@@ -5570,8 +5592,8 @@
                         throw response.error;
                     }
                 } catch (error) {
-                    if (isMounted.current) setError(error.message);
-                } finally {
+                    if (isMounted.current) setError(translateAuthError(error.message));
+                    } finally {
                     if (isMounted.current) setLoading(false);
                 }
             };
