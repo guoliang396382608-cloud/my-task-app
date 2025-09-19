@@ -5548,7 +5548,17 @@
                 if (message.includes("Unable to validate email address: invalid format")) return "请输入有效的邮箱地址。";
                 return message; // 如果没有匹配的翻译，则返回原始信息
             };
-            const handlePasswordReset = async (e) => { e.preventDefault(); setLoading(true); setError(null); setMessage(null); try { const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin }); if (error) throw error; if (isMounted.current) setMessage('密码重置链接已发送，请检查您的邮箱。'); } catch (error) { if (isMounted.current) setError(error.message); } finally { if (isMounted.current) setLoading(false); } };
+            const handlePasswordReset = async (e) => { e.preventDefault(); setLoading(true); setError(null); setMessage(null);
+                 try { 
+                    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                         redirectTo: 'https://guoliang396382608-cloud.github.io/my-task-app/set-password.html'
+        });
+                          if (error) throw error;
+                           if (isMounted.current) setMessage('密码重置链接已发送，请检查您的邮箱。');
+                         }
+                          catch (error) { if (isMounted.current) setError(error.message);
+                           }
+                            finally { if (isMounted.current) setLoading(false); } };
             const handleAuth = async (e) => {
                 e.preventDefault();
                 setLoading(true);
@@ -8079,3 +8089,4 @@
 </body>
 
 </html>
+
