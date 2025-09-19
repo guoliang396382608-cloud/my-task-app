@@ -2144,7 +2144,7 @@
                             <div className="flex-shrink-0 mt-1"><NotificationIcon type={item.type} /></div>
                             <div className="flex-grow">
                                 <p className="text-sm text-gray-700 dark:text-gray-300">{item.message}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatDateTime(item.created_at)}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatDateTime(item.timestamp || item.created_at)}</p>
                             </div>
                         </li>
                     ))}
@@ -2170,9 +2170,10 @@
                             <div className="flex-shrink-0 mt-1"><NotificationIcon type={item.type} /></div>
                             <div className="flex-grow">
                                 <p className="text-sm text-gray-700 dark:text-gray-300">{item.message}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                    将在 {formatDateTime(item.snoozed_until)} 重新提醒
-                                </p>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 space-y-1">
+                                    <p>通知于: {formatDateTime(item.timestamp || item.created_at)}</p>
+                                    <p className="font-semibold text-amber-600 dark:text-amber-400">将在 {formatDateTime(item.snoozed_until)} 重新提醒</p>
+                                </div>
                             </div>
                         </li>
                     ))}
