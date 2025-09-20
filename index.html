@@ -5689,6 +5689,7 @@
                 }
             };
             
+            // ... (此组件的其余 JSX 代码保持不变)
             return (
                 <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-4">
                     <div className="w-full max-w-md">
@@ -5754,7 +5755,7 @@
             );
         };
 
-        // --- 验证包装器 (最终简化版) ---
+        // --- 验证包装器 (最终修复版) ---
         const AuthWrapper = () => {
             const [authStatus, setAuthStatus] = useState('loading'); // loading, authenticated, pending_approval, needs_profile_completion, anonymous
             const [session, setSession] = useState(null);
@@ -5763,47 +5764,41 @@
             const checkUserStatus = async (user) => {
                 if (!user) return 'anonymous';
 
-                // 检查1: 是否为待审批的常规注册用户 (逻辑不变)
+                // 检查是否为待审批的常规注册用户
                 if (user.user_metadata?.role === 'pending') {
                     await supabase.auth.signOut();
                     setAuthError("您的账户正在等待管理员批准。请联系管理员激活账号。");
                     return 'pending_approval';
                 }
 
-                // 检查2: 是否为需要激活的被邀请用户
-                // 因为触发器确保了所有用户都有profile, 我们现在可以安全地查询
+                // 【核心修改】检查是否为需要激活的被邀请用户
                 const { data: profile, error } = await supabase
                     .from('profiles')
                     .select('is_activated')
                     .eq('id', user.id)
                     .single();
-
-                // 如果查询出错或找不到profile(理论上不应发生)，则拒绝登录
-                if (error) {
+                
+                if (error && error.code !== 'PGRST116') {
                     console.error("获取profile失败:", error);
                     await supabase.auth.signOut();
                     setAuthError("无法验证您的账户信息，请稍后重试。");
                     return 'anonymous';
                 }
-                
-                // 如果 is_activated 为 false，则需要完善资料
-                if (profile.is_activated === false) {
+
+                // 如果 profile 存在且 is_activated 为 false，则需要完善资料
+                if (profile && profile.is_activated === false) {
                     return 'needs_profile_completion';
                 }
                 
-                // 所有检查通过，用户是已认证状态
+                // 如果 profile 不存在，或者 is_activated 为 true，则认为是已认证
                 return 'authenticated';
             };
             
             useEffect(() => {
-                // 添加一个 .catch() 来处理任何初始化时可能发生的错误
                 supabase.auth.getSession().then(async ({ data: { session } }) => {
                     const status = await checkUserStatus(session?.user);
                     setSession(session);
                     setAuthStatus(status);
-                }).catch(err => {
-                    console.error("初始化Session失败:", err);
-                    setAuthStatus('anonymous'); // 如果出错，则进入登录页面
                 });
 
                 const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -5816,7 +5811,6 @@
                 return () => subscription.unsubscribe();
             }, []);
 
-            // 渲染逻辑保持不变
             if (authStatus === 'loading') {
                 return (
                     <div className="flex justify-center items-center h-screen bg-slate-50 dark:bg-slate-900">
@@ -5824,15 +5818,19 @@
                     </div>
                 );
             }
+
             if (authStatus === 'authenticated') {
                 return <App session={session} />;
             }
+
             if (authStatus === 'needs_profile_completion') {
                 return <CompleteProfile user={session.user} onProfileComplete={() => {
+                    // 手动刷新 session 以获取最新的 user_metadata
                     supabase.auth.refreshSession(); 
                     setAuthStatus('authenticated');
                 }} />;
             }
+            
             return <Login authError={authError} />;
         };
         // --- Main App Component ---
@@ -8169,6 +8167,7 @@
 </body>
 
 </html>
+
 
 
 
