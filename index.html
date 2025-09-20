@@ -5728,7 +5728,7 @@
 
                 // 监听后续状态变化
                 const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-                    if (session && session.user.app_metadata?.role === 'pending') {
+                    if (session && session.user.user_metadata?.role === 'pending') {
                         await supabase.auth.signOut();
                         setAuthError("您的账户正在等待管理员批准。请联系管理员激活账号。");
                         setSession(null);
@@ -8091,4 +8091,5 @@
 </body>
 
 </html>
+
 
