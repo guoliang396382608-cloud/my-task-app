@@ -5689,7 +5689,7 @@
                 </div>
             );
         };
-// ================== 【全新】账户激活组件 ==================
+// ================== 【全新】账户激活组件 (最终版) ==================
         const CompleteProfile = ({ user, onProfileComplete }) => {
             const [password, setPassword] = useState('');
             const [displayName, setDisplayName] = useState('');
@@ -5702,16 +5702,8 @@
                 setLoading(true);
                 setError(null);
 
-                if (password.length < 6) {
-                    setError('密码长度至少需要6位。');
-                    setLoading(false);
-                    return;
-                }
-                if (!displayName.trim()) {
-                    setError('姓名不能为空。');
-                    setLoading(false);
-                    return;
-                }
+                if (password.length < 6) { setError('密码长度至少需要6位。'); setLoading(false); return; }
+                if (!displayName.trim()) { setError('姓名不能为空。'); setLoading(false); return; }
 
                 try {
                     // 步骤1: 更新用户的密码和姓名
@@ -5721,16 +5713,17 @@
                     });
                     if (updateUserError) throw updateUserError;
 
-                    // 步骤2: 更新用户的 profile 信息（部门等）
-                    // 使用 upsert 确保即使 profile 不存在也能创建
+                    // 步骤2: 【核心修改】更新用户的 profile，并将 is_activated 设为 true
                     const { error: updateProfileError } = await supabase
                         .from('profiles')
-                        .upsert({
-                            id: user.id,
+                        .update({
                             username: displayName,
                             department: department,
+                            is_activated: true, // <-- 将激活状态设为 true
                             updated_at: new Date().toISOString()
-                        });
+                        })
+                        .eq('id', user.id); // 确保只更新当前用户的记录
+
                     if (updateProfileError) throw updateProfileError;
 
                     // 步骤3: 通知父组件，激活完成
@@ -5744,7 +5737,8 @@
                     setLoading(false);
                 }
             };
-
+            
+            // ... (此组件的其余 JSX 代码保持不变)
             return (
                 <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-4">
                     <div className="w-full max-w-md">
@@ -5810,13 +5804,13 @@
             );
         };
 
-        // --- 验证包装器 (最终升级版) ---
+        // --- 验证包装器 (最终修复版) ---
         const AuthWrapper = () => {
             const [authStatus, setAuthStatus] = useState('loading'); // loading, authenticated, pending_approval, needs_profile_completion, anonymous
             const [session, setSession] = useState(null);
             const [authError, setAuthError] = useState(null);
 
-            const checkUserProfile = async (user) => {
+            const checkUserStatus = async (user) => {
                 if (!user) return 'anonymous';
 
                 // 检查是否为待审批的常规注册用户
@@ -5826,44 +5820,40 @@
                     return 'pending_approval';
                 }
 
-                // 检查是否为需要完善资料的被邀请用户
+                // 【核心修改】检查是否为需要激活的被邀请用户
                 const { data: profile, error } = await supabase
                     .from('profiles')
-                    .select('department, username')
+                    .select('is_activated')
                     .eq('id', user.id)
                     .single();
                 
-                if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+                if (error && error.code !== 'PGRST116') {
                     console.error("获取profile失败:", error);
                     await supabase.auth.signOut();
                     setAuthError("无法验证您的账户信息，请稍后重试。");
                     return 'anonymous';
                 }
 
-                // 如果没有profile记录，或者profile中缺少关键信息，则判定为需要完善资料
-                if (!profile || !profile.department || !profile.username) {
+                // 如果 profile 存在且 is_activated 为 false，则需要完善资料
+                if (profile && profile.is_activated === false) {
                     return 'needs_profile_completion';
                 }
-
+                
+                // 如果 profile 不存在，或者 is_activated 为 true，则认为是已认证
                 return 'authenticated';
             };
             
             useEffect(() => {
-                // 首次加载时处理
                 supabase.auth.getSession().then(async ({ data: { session } }) => {
-                    const status = await checkUserProfile(session?.user);
+                    const status = await checkUserStatus(session?.user);
                     setSession(session);
                     setAuthStatus(status);
                 });
 
-                // 监听后续状态变化
                 const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
                     setSession(session);
-                    if (_event === "PASSWORD_RECOVERY") {
-                        // 如果是重设密码流程，暂时不处理，让重设密码页面接管
-                        return; 
-                    }
-                    const status = await checkUserProfile(session?.user);
+                    if (_event === "PASSWORD_RECOVERY") { return; }
+                    const status = await checkUserStatus(session?.user);
                     setAuthStatus(status);
                 });
 
@@ -5883,10 +5873,13 @@
             }
 
             if (authStatus === 'needs_profile_completion') {
-                return <CompleteProfile user={session.user} onProfileComplete={() => setAuthStatus('authenticated')} />;
+                return <CompleteProfile user={session.user} onProfileComplete={() => {
+                    // 手动刷新 session 以获取最新的 user_metadata
+                    supabase.auth.refreshSession(); 
+                    setAuthStatus('authenticated');
+                }} />;
             }
             
-            // 其他所有情况 (anonymous, pending_approval) 都显示登录页
             return <Login authError={authError} />;
         };
 
@@ -8224,6 +8217,7 @@
 </body>
 
 </html>
+
 
 
 
