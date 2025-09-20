@@ -1479,7 +1479,7 @@
                                 <div className="flex-shrink-0 mt-1"><NotificationIcon type={item.type} /></div>
                                 <div className="flex-grow">
                                     <p className="text-sm text-gray-800 dark:text-gray-200">{item.message}</p>
-                                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{formatDateTime(item.timestamp)}</p>
+                                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{formatDateTime(item.timestamp || item.created_at)}</p>
                                 </div>
                                 {/* 复选框和“稍后提醒”按钮的位置将在这里 */}
                             </li>
@@ -8093,6 +8093,7 @@
 </body>
 
 </html>
+
 
 
 
