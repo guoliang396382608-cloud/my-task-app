@@ -4814,56 +4814,7 @@
                 </div>
             );
         };
-        // ================== 新组件代码结束 ==================
-        const SetPassword = ({ onPasswordSet }) => {
-            const [password, setPassword] = useState('');
-            const [loading, setLoading] = useState(false);
-            const [error, setError] = useState(null);
-            const [message, setMessage] = useState('欢迎！请设置您的初始密码。');
-
-            const handleSetPassword = async (e) => {
-                e.preventDefault();
-                setLoading(true);
-                setError(null);
-                try {
-                    const { error } = await supabase.auth.updateUser({ password: password });
-                    if (error) throw error;
-                    setMessage('密码设置成功！正在带您进入系统...');
-                    // 延迟一小会，然后通知父组件密码已设置成功
-                    setTimeout(() => {
-                        onPasswordSet();
-                    }, 1500);
-                } catch (error) {
-                    setError(error.message);
-                    setLoading(false);
-                }
-            };
-
-            return (
-                <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col justify-center items-center p-4">
-                    <div className="w-full max-w-md">
-                        <div className="text-center mb-8">
-                            <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">设置密码</h1>
-                        </div>
-                        <div className="bg-white dark:bg-slate-800 shadow-xl rounded-xl p-8">
-                            <form onSubmit={handleSetPassword}>
-                                <p className="text-center text-slate-500 dark:text-slate-400 mb-4">{message}</p>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">新密码</label>
-                                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" required />
-                                </div>
-                                {error && <p className="mt-4 text-sm text-center text-red-500">{error}</p>}
-                                <div className="mt-8">
-                                    <button type="submit" disabled={loading} className="w-full px-6 py-3 rounded-md text-white font-semibold bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300">
-                                        {loading ? '设置中...' : '确认并登录'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
+        
         const ProfileModal = ({ isOpen, onClose, session, showNotification, onProfileUpdate }) => {
             const [displayName, setDisplayName] = useState(session.user.user_metadata?.display_name || '');
             const [newPassword, setNewPassword] = useState('');
@@ -8218,6 +8169,7 @@
 </body>
 
 </html>
+
 
 
 
