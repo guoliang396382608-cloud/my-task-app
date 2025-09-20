@@ -5689,7 +5689,104 @@
                 </div>
             );
         };
+// ================== 【全新】账户激活组件 ==================
+        const CompleteProfile = ({ user, onProfileComplete }) => {
+            const [password, setPassword] = useState('');
+            const [displayName, setDisplayName] = useState('');
+            const [department, setDepartment] = useState('技术部门');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
 
+            const handleCompleteProfile = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError(null);
+
+                if (password.length < 6) {
+                    setError('密码长度至少需要6位。');
+                    setLoading(false);
+                    return;
+                }
+                if (!displayName.trim()) {
+                    setError('姓名不能为空。');
+                    setLoading(false);
+                    return;
+                }
+
+                try {
+                    // 步骤1: 更新用户的密码和姓名
+                    const { error: updateUserError } = await supabase.auth.updateUser({
+                        password: password,
+                        data: { display_name: displayName }
+                    });
+                    if (updateUserError) throw updateUserError;
+
+                    // 步骤2: 更新用户的 profile 信息（部门等）
+                    // 使用 upsert 确保即使 profile 不存在也能创建
+                    const { error: updateProfileError } = await supabase
+                        .from('profiles')
+                        .upsert({
+                            id: user.id,
+                            username: displayName,
+                            department: department,
+                            updated_at: new Date().toISOString()
+                        });
+                    if (updateProfileError) throw updateProfileError;
+
+                    // 步骤3: 通知父组件，激活完成
+                    showNotification('账户激活成功！欢迎加入！');
+                    setTimeout(() => {
+                        onProfileComplete();
+                    }, 1500);
+
+                } catch (error) {
+                    setError('激活失败: ' + error.message);
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-4">
+                    <div className="w-full max-w-md">
+                        <div className="text-center mb-8">
+                            <h1 className="text-3xl font-bold text-slate-800">欢迎！请完成账户设置</h1>
+                            <p className="text-slate-500 mt-2">您已接受邀请，请设置您的个人信息以激活账户。</p>
+                        </div>
+                        <div className="bg-white shadow-xl rounded-xl p-8">
+                            <form onSubmit={handleCompleteProfile}>
+                                <div className="space-y-5">
+                                    <div>
+                                        <label className="block text-sm font-medium">您的邮箱</label>
+                                        <input type="email" value={user.email} disabled className="w-full bg-gray-200 border rounded-md px-3 py-2 text-gray-500" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-600 mb-1">您的姓名 (显示名称)</label>
+                                        <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500" required />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-600 mb-1">请选择您的部门</label>
+                                        <div className="flex items-center space-x-6 mt-2">
+                                            <label className="flex items-center space-x-2 cursor-pointer"><input type="radio" name="department" value="技术部门" checked={department === '技术部门'} onChange={(e) => setDepartment(e.target.value)} className="form-radio h-4 w-4 text-emerald-600" /><span >技术部门</span></label>
+                                            <label className="flex items-center space-x-2 cursor-pointer"><input type="radio" name="department" value="市场部门" checked={department === '市场部门'} onChange={(e) => setDepartment(e.target.value)} className="form-radio h-4 w-4 text-emerald-600" /><span >市场部门</span></label>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-600 mb-1">设置您的登录密码</label>
+                                        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500" required />
+                                    </div>
+                                </div>
+                                {error && <p className="mt-4 text-sm text-center text-red-500">{error}</p>}
+                                <div className="mt-8">
+                                    <button type="submit" disabled={loading} className="w-full px-6 py-3 rounded-md text-white font-semibold bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300">
+                                        {loading ? '正在设置...' : '完成并进入系统'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
         const Notification = ({ notification, onClose }) => {
             if (!notification.show) return null;
 
@@ -5713,36 +5810,67 @@
             );
         };
 
-        // --- 验证包装器 ---
+        // --- 验证包装器 (最终升级版) ---
         const AuthWrapper = () => {
+            const [authStatus, setAuthStatus] = useState('loading'); // loading, authenticated, pending_approval, needs_profile_completion, anonymous
             const [session, setSession] = useState(null);
-            const [loading, setLoading] = useState(true);
             const [authError, setAuthError] = useState(null);
 
+            const checkUserProfile = async (user) => {
+                if (!user) return 'anonymous';
+
+                // 检查是否为待审批的常规注册用户
+                if (user.user_metadata?.role === 'pending') {
+                    await supabase.auth.signOut();
+                    setAuthError("您的账户正在等待管理员批准。请联系管理员激活账号。");
+                    return 'pending_approval';
+                }
+
+                // 检查是否为需要完善资料的被邀请用户
+                const { data: profile, error } = await supabase
+                    .from('profiles')
+                    .select('department, username')
+                    .eq('id', user.id)
+                    .single();
+                
+                if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+                    console.error("获取profile失败:", error);
+                    await supabase.auth.signOut();
+                    setAuthError("无法验证您的账户信息，请稍后重试。");
+                    return 'anonymous';
+                }
+
+                // 如果没有profile记录，或者profile中缺少关键信息，则判定为需要完善资料
+                if (!profile || !profile.department || !profile.username) {
+                    return 'needs_profile_completion';
+                }
+
+                return 'authenticated';
+            };
+            
             useEffect(() => {
-                // 首次加载时获取 session
-                supabase.auth.getSession().then(({ data: { session } }) => {
+                // 首次加载时处理
+                supabase.auth.getSession().then(async ({ data: { session } }) => {
+                    const status = await checkUserProfile(session?.user);
                     setSession(session);
-                    setLoading(false);
+                    setAuthStatus(status);
                 });
 
                 // 监听后续状态变化
                 const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-                    if (session && session.user.user_metadata?.role === 'pending') {
-                        await supabase.auth.signOut();
-                        setAuthError("您的账户正在等待管理员批准。请联系管理员激活账号。");
-                        setSession(null);
-                    } else {
-                        setAuthError(null);
-                        setSession(session);
+                    setSession(session);
+                    if (_event === "PASSWORD_RECOVERY") {
+                        // 如果是重设密码流程，暂时不处理，让重设密码页面接管
+                        return; 
                     }
-                    setLoading(false);
+                    const status = await checkUserProfile(session?.user);
+                    setAuthStatus(status);
                 });
 
                 return () => subscription.unsubscribe();
             }, []);
 
-            if (loading) {
+            if (authStatus === 'loading') {
                 return (
                     <div className="flex justify-center items-center h-screen bg-slate-50 dark:bg-slate-900">
                         <p className="text-lg text-slate-500">正在初始化...</p>
@@ -5750,13 +5878,16 @@
                 );
             }
 
-            // 只有当 session 存在且用户角色不是 'pending' 时，才渲染 App
-            if (session && session.user.user_metadata?.role !== 'pending') {
+            if (authStatus === 'authenticated') {
                 return <App session={session} />;
-            } else {
-                // 其他所有情况（未登录，或用户角色为 'pending'）都渲染 Login 组件
-                return <Login authError={authError} />;
             }
+
+            if (authStatus === 'needs_profile_completion') {
+                return <CompleteProfile user={session.user} onProfileComplete={() => setAuthStatus('authenticated')} />;
+            }
+            
+            // 其他所有情况 (anonymous, pending_approval) 都显示登录页
+            return <Login authError={authError} />;
         };
 
         // --- Main App Component ---
@@ -8093,6 +8224,7 @@
 </body>
 
 </html>
+
 
 
 
