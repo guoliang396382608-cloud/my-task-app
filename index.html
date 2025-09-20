@@ -93,6 +93,74 @@
             }
         }
 
+        /* --- 【新增】移动端响应式布局核心样式 --- */
+        @media (max-width: 768px) {
+
+            /* 强制所有弹窗宽度不超过屏幕宽度，并留出边距 */
+            .fixed.inset-0>div {
+                max-width: 95vw !important;
+                max-height: 90vh !important;
+            }
+            /* 将桌面端的宽表格布局转变为移动端的卡片式布局 */
+            .task-grid-container {
+                display: block !important;
+                /* 禁用Grid布局 */
+            }
+
+            .task-grid-header {
+                display: none !important;
+                /* 隐藏桌面端的表头 */
+            }
+
+            .task-row-card {
+                display: block !important;
+                /* 强制任务行变为块级元素（卡片） */
+                margin-bottom: 1rem;
+                border: 1px solid #e2e8f0;
+                border-left-width: 4px;
+                border-radius: 0.5rem;
+                box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            }
+
+            .dark .task-row-card {
+                border-color: #334155;
+            }
+
+            .task-cell {
+                display: flex !important;
+                justify-content: space-between;
+                padding: 0.5rem 1rem;
+                border-bottom: 1px solid #f1f5f9;
+                text-align: left;
+            }
+
+            .dark .task-cell {
+                border-bottom-color: #334155;
+            }
+
+            .task-cell:last-child {
+                border-bottom: none;
+            }
+
+            .task-cell::before {
+                content: attr(data-label);
+                /* 使用 data-label 作为每行的标题 */
+                font-weight: 600;
+                margin-right: 1rem;
+                color: #475569;
+            }
+
+            .dark .task-cell::before {
+                color: #94a3b8;
+            }
+
+            .task-actions-cell {
+                justify-content: center !important;
+                /* 居中操作按钮 */
+                padding-top: 0.75rem;
+            }
+        }
+
         input[type="date"] {
             position: relative;
         }
@@ -272,45 +340,55 @@
                 opacity: 0;
             }
         }
+
         /* --- 【最终版】每日一语滚动横幅动画 --- */
         @keyframes scroll-left-to-right {
             from {
                 transform: translateX(-100%);
             }
+
             to {
                 transform: translateX(100vw);
             }
         }
+
         .scrolling-quote-banner {
             position: fixed;
-            top: 60px; 
+            top: 60px;
             left: 0;
             width: 100%;
             padding: 10px 0;
 
             /* 核心修改：移除背景，只保留文字样式 */
             background: transparent;
-            color: #FFD700; /* 明亮的标准金色 */
-            font-size: 1.2rem; /* 字体稍微调大，使其更醒目 */
+            color: #FFD700;
+            /* 明亮的标准金色 */
+            font-size: 1.2rem;
+            /* 字体稍微调大，使其更醒目 */
             font-weight: 600;
             /* 核心修改：使用强烈的辉光效果确保文字可读性 */
             text-shadow: 0 0 2px #000, 0 0 5px #000, 0 0 10px #FFD700;
-            
+
             z-index: 9999;
             white-space: nowrap;
             cursor: pointer;
             animation: scroll-left-to-right 30s linear forwards;
-            pointer-events: all; /* 确保无背景时也能被点击 */
+            pointer-events: all;
+            /* 确保无背景时也能被点击 */
         }
+
         .scrolling-quote-banner p {
-             display: inline-block;
-             padding-left: 100%;
+            display: inline-block;
+            padding-left: 100%;
         }
+
         .scrolling-quote-banner:hover {
             animation-play-state: paused;
         }
+
         .scrolling-quote-banner .source-text {
-            color: #abc1eb; /* 来源文字使用亮灰色 */
+            color: #abc1eb;
+            /* 来源文字使用亮灰色 */
             opacity: 0.9;
             font-weight: 400;
             font-size: 1rem;
@@ -391,7 +469,14 @@
             actual_completion_date: data.actualCompletionDate || null,
             contract_details: data.contractDetails // <-- 新增此行
         });
-
+        const generateTaskSummary = (task) => {
+            if (!task) return '';
+            // 安全地访问属性，为可能缺失的数据提供备用文本
+            const id = task.customTaskId || '无编号';
+            const name = task.projectName || '无名称';
+            const type = task.taskType || '无类型';
+            return `[${id}] ${name} (${type})`;
+        };
         // --- Icon Components (您的所有图标组件) ---
         const Icon = ({ children, size = 20, ...props }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>{children}</svg>);
         const Plus = (props) => <Icon {...props}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></Icon>;
@@ -443,7 +528,7 @@
             rechecker_name: "复核人", // 新增
             issuer_name: "签发人", // 新增
             contractAmount: "合同金额",
-            contractualDueDate: "合同规定完成日期",
+            contractualDueDate: "合同规定日期",
             actualCompletionDate: "实际完成日期",
             isArchived: "存档状态",
             createdAt: "任务下达日期",
@@ -478,7 +563,36 @@
         };
         const formatDate = (dateStr) => { if (!dateStr) return ''; try { const d = new Date(dateStr); return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0]; } catch (e) { return ''; } };
         const formatDateTime = (dateStr) => { if (!dateStr) return ''; try { return new Date(dateStr).toLocaleString('zh-CN', { hour12: false }); } catch (e) { return ''; } };
-        const formatDuration = (totalDays) => { if (totalDays === null || isNaN(totalDays)) return { status: '-', time: '' }; if (totalDays === 0) return { status: '今天截止', time: '' }; const status = totalDays < 0 ? '已逾期' : '剩余'; const absDays = Math.abs(totalDays); if (absDays < 30) return { status, time: `${absDays}天` }; const years = Math.floor(absDays / 365); const months = Math.floor((absDays % 365) / 30); const days = (absDays % 365) % 30; let parts = []; if (years > 0) parts.push(`${years}年`); if (months > 0) parts.push(`${months}月`); if (days > 0) parts.push(`${days}天`); return { status, time: parts.join('') }; };
+        const formatDuration = (totalDays) => {
+            if (totalDays === null || isNaN(totalDays)) return { status: '-', time: '' };
+            if (totalDays === 0) return { status: '今天截止', time: '' };
+
+            const status = totalDays < 0 ? '已逾期' : '剩余';
+            const absDays = Math.abs(totalDays);
+
+            // 如果天数小于30天，直接显示天数，逻辑保持不变
+            if (absDays < 30) {
+                return { status, time: `${absDays}天` };
+            }
+
+            // --- 使用之前被忽略的、正确的逻辑来计算年、月、日 ---
+            const years = Math.floor(absDays / 365);
+            const months = Math.floor((absDays % 365) / 30);
+            const days = (absDays % 365) % 30;
+
+            let parts = [];
+            if (years > 0) parts.push(`${years}年`);
+            if (months > 0) parts.push(`${months}月`);
+            if (days > 0) parts.push(`${days}天`);
+
+            // 防止出现空结果（例如正好365天的情况）
+            if (parts.length === 0) {
+                if (years > 0) return { status, time: `${years}年` };
+                return { status, time: `${Math.floor(absDays / 30)}月` };
+            }
+
+            return { status, time: parts.join('') };
+        };
         const formatAmount = (amount) => { if (amount === null || amount === undefined || amount === '' || isNaN(Number(amount))) return 'N/A'; return `${Number(amount).toLocaleString('zh-CN')} 元`; };
         const generateChangeLog = (oldData, newData, userMap) => {
             const changes = [];
@@ -538,7 +652,7 @@
                 sourcing_department: "承接部门(市场)", execution_department: "执行部门(技术)",
                 contractAmount: "合同金额", salesPerson: "业务人员", reviewerId: "评审人员", projectManager: "项目负责人",
                 auditor_name: "审核人", rechecker_name: "复核人", issuer_name: "签发人",
-                contractualDueDate: "合同规定完成日期", actualCompletionDate: "实际完成日期",
+                contractualDueDate: "合同规定日期", actualCompletionDate: "实际完成日期",
                 progressDetails: "最新项目进展", region: "所属地区", isArchived: "是否存档",
                 status: "状态", timeRemaining: "剩余时间"
             };
@@ -1125,7 +1239,7 @@
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 border-t dark:border-gray-700 pt-4 mt-6">
                                     <div><Label>合同金额 (元)</Label><Input type="number" name="contractAmount" value={formData.contractAmount} onChange={handleInputChange} placeholder="请输入金额" step="any" /></div>
                                     <div><Label>任务下达日期</Label><Input type="date" name="createdAt" value={formatDate(formData.createdAt)} onChange={(e) => setFormData({ ...formData, createdAt: new Date(e.target.value).toISOString() })} /></div>
-                                    <div><Label>合同规定完成日期</Label><Input type="date" name="contractualDueDate" value={formData.contractualDueDate} onChange={handleInputChange} /></div>
+                                    <div><Label>合同规定日期</Label><Input type="date" name="contractualDueDate" value={formData.contractualDueDate} onChange={handleInputChange} /></div>
                                 </div>
 
                                 <div className="border-t dark:border-gray-700 pt-4 mt-6">
@@ -1547,44 +1661,48 @@
 
             return (
                 <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
-                    <div className="bg-white text-gray-800 dark:bg-slate-900 dark:text-gray-200 rounded-xl shadow-2xl w-full max-w-7xl h-[90vh] flex flex-col">
-                        <header className="flex justify-between items-center p-4 border-b dark:border-slate-700 shrink-0">
+<div className="bg-white text-gray-800 dark:bg-slate-900 dark:text-gray-200 rounded-xl shadow-2xl w-full max-w-full md:max-w-4xl lg:max-w-7xl h-[90vh] flex flex-col">                        <header className="flex justify-between items-center p-4 border-b dark:border-slate-700 shrink-0">
                             <h2 className="text-xl font-bold">统计分析</h2>
                             <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700"><X /></button>
                         </header>
-                        <div className="p-6 flex flex-col flex-grow min-h-0">
-                            <div className="shrink-0">
-                                <TaskFilter onFilterChange={handleFilterChange} allTasks={tasks} userMap={userMap} forceDirection="down" />
-                                <div className="flex justify-between items-center my-4">
-                                    <div className="grid grid-cols-2 gap-4 flex-grow">
-                                        <div className="p-4 bg-white dark:bg-slate-800 border rounded-lg text-center shadow-sm"><div className="text-3xl font-bold text-emerald-500">{filteredTasks.length}</div><div className="text-sm text-gray-500 dark:text-gray-400">任务总数</div></div>
-                                        <div className="p-4 bg-white dark:bg-slate-800 border rounded-lg text-center shadow-sm"><div className="text-3xl font-bold text-green-500">{formatAmount(totalAmount)}</div><div className="text-sm text-gray-500 dark:text-gray-400">合同总金额</div></div>
-                                    </div>
-                                    <div className="ml-8"><ColumnToggler allColumns={ALL_COLUMNS} visibleColumns={visibleColumns} onToggle={handleToggleColumn} /></div>
-                                </div>
+                        <div className="p-4 md:p-6 flex-grow min-h-0 flex flex-col overflow-y-auto md:overflow-y-hidden">
+                    {/* --- 顶部区域 (筛选器 + 卡片) --- */}
+                    <div className="md:shrink-0">
+                        <TaskFilter onFilterChange={handleFilterChange} allTasks={tasks} userMap={userMap} forceDirection="down" />
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center my-4 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+                                <div className="p-4 bg-white dark:bg-slate-800 border rounded-lg text-center shadow-sm"><div className="text-3xl font-bold text-emerald-500">{filteredTasks.length}</div><div className="text-sm text-gray-500 dark:text-gray-400">任务总数</div></div>
+                                <div className="p-4 bg-white dark:bg-slate-800 border rounded-lg text-center shadow-sm"><div className="text-3xl font-bold text-green-500">{formatAmount(totalAmount)}</div><div className="text-sm text-gray-500 dark:text-gray-400">合同总金额</div></div>
                             </div>
-                            <div className="overflow-auto flex-grow">
-                                <table className="w-full text-sm text-center">
-                                    <thead className="text-xs uppercase bg-gray-100 dark:bg-slate-800 sticky top-0 z-10">
-                                        <tr>{ALL_COLUMNS.filter(c => visibleColumns.includes(c.key)).map(col => (<th key={col.key} className="p-2 font-medium">{col.label}</th>))}</tr>
-                                    </thead>
-                                    <tbody>
-                                        {filteredTasks.map((task, index) => (
-                                            <tr key={task.id} className={`border-b dark:border-slate-700 ${index % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-gray-50/50 dark:bg-slate-800/50'}`}>
-                                                {ALL_COLUMNS.filter(c => visibleColumns.includes(c.key)).map(col => {
-                                                    let content = task[col.key];
-                                                    if (['createdAt', 'actualCompletionDate'].includes(col.key)) content = formatDate(content);
-                                                    else if (['salesPerson', 'projectManager'].includes(col.key)) content = userMap.get(content) || content;
-                                                    else if (col.key === 'isArchived') content = task.isArchived ? '是' : '否';
-                                                    else if (col.key === 'contractAmount') content = formatAmount(content);
-                                                    return (<td key={col.key} className="p-2 break-words" title={content}>{content || ''}</td>);
-                                                })}
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                            <div className="self-end sm:self-center"><ColumnToggler allColumns={ALL_COLUMNS} visibleColumns={visibleColumns} onToggle={handleToggleColumn} /></div>
                         </div>
+                    </div>
+
+                    {/* --- 底部区域 (表格) --- */}
+                    <div className="mt-4 md:mt-0 md:flex-grow md:min-h-0 md:overflow-y-auto">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-center">
+                                <thead className="text-xs uppercase bg-gray-100 dark:bg-slate-800 sticky top-0 z-10">
+                                    <tr>{ALL_COLUMNS.filter(c => visibleColumns.includes(c.key)).map(col => (<th key={col.key} className="p-2 font-medium">{col.label}</th>))}</tr>
+                                </thead>
+                                <tbody>
+                                    {filteredTasks.map((task, index) => (
+                                        <tr key={task.id} className={`border-b dark:border-slate-700 ${index % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-gray-50/50 dark:bg-slate-800/50'}`}>
+                                            {ALL_COLUMNS.filter(c => visibleColumns.includes(c.key)).map(col => {
+                                                let content = task[col.key];
+                                                if (['createdAt', 'actualCompletionDate'].includes(col.key)) content = formatDate(content);
+                                                else if (['salesPerson', 'projectManager'].includes(col.key)) content = userMap.get(content) || content;
+                                                else if (col.key === 'isArchived') content = task.isArchived ? '是' : '否';
+                                                else if (col.key === 'contractAmount') content = formatAmount(content);
+                                                return (<td key={col.key} className="p-2 break-words" title={content}>{content || ''}</td>);
+                                            })}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
                         <footer className="p-4 flex justify-end gap-4 bg-gray-100 dark:bg-slate-800 rounded-b-xl border-t shrink-0">
                             <button onClick={() => exportData('excel', filteredTasks, "统计结果", visibleColumns, () => alert('统计结果已导出！'), [], userMap)} className="px-6 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700 font-semibold flex items-center gap-2">
                                 <Download size={16} />下载统计结果
@@ -1600,7 +1718,7 @@
                 { key: 'taskType', label: '任务类型' }, { key: 'sourcing_department', label: '承接部门(市场)' }, { key: 'execution_department', label: '执行部门(技术)' },
                 { key: 'contractAmount', label: '合同金额' }, { key: 'salesPerson', label: '业务人员' }, { key: 'reviewerId', label: '评审人员' },
                 { key: 'projectManager', label: '项目负责人' }, { key: 'auditor_name', label: '审核人' }, { key: 'rechecker_name', label: '复核人' }, { key: 'issuer_name', label: '签发人' },
-                { key: 'contractualDueDate', label: '合同规定完成日期' }, { key: 'timeRemaining', label: '剩余时间' }, { key: 'progressDetails', label: '最新项目进展' },
+                { key: 'contractualDueDate', label: '合同规定日期' }, { key: 'timeRemaining', label: '剩余时间' }, { key: 'progressDetails', label: '最新项目进展' },
                 { key: 'region', label: '所属地区' }, { key: 'status', label: '状态' }, { key: 'actualCompletionDate', label: '实际完成日期' }, { key: 'isArchived', label: '是否存档' },
             ], []);
 
@@ -1778,6 +1896,7 @@
                             <div className="text-sm text-gray-600 dark:text-gray-300 mt-2 space-y-1 bg-gray-50 dark:bg-slate-800 p-3 rounded-md border dark:border-slate-700">
                                 <p><span className="font-semibold w-20 inline-block">任务编号:</span> <span className="font-mono">{task.customTaskId}</span></p>
                                 <p><span className="font-semibold w-20 inline-block">项目名称:</span> {task.projectName}</p>
+                                <p><span className="font-semibold w-20 inline-block">任务类型:</span> {task.taskType}</p>
                             </div>
                         </header>
                         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1838,11 +1957,11 @@
             }, [currentView, currentUserProfile, columnDefinitions, columnWidthMap, availableRoles]); // 注意依赖项也更新了
 
             return (
-                <div style={{ gridTemplateColumns }} className={`grid gap-4 px-4 py-3 bg-slate-100 dark:bg-slate-800 text-sm font-bold text-slate-700 dark:text-slate-300 sticky top-0 z-10 text-center border-b-2 border-slate-200 dark:border-slate-700`}>
-                    {currentView !== 'overview' && <div className="flex items-center justify-center"><input type="checkbox" ref={checkboxRef} onChange={onSelectAll} checked={taskCount > 0 && numSelected === taskCount} className="form-checkbox h-4 w-4 text-emerald-600" /></div>}
-                    {visibleColumns.map(col => <HeaderCell key={col.key} label={col.label} />)}
-                    {currentView !== 'overview' && <HeaderCell label="操作" />}
-                </div>
+                <div style={{ gridTemplateColumns }} className={`task-grid-header grid gap-4 px-4 py-3 bg-slate-100 dark:bg-slate-800 text-sm font-bold text-slate-700 dark:text-slate-300 sticky top-0 z-10 text-center border-b-2 border-slate-200 dark:border-slate-700`}>
+            {currentView !== 'overview' && <div className="flex items-center justify-center"><input type="checkbox" ref={checkboxRef} onChange={onSelectAll} checked={taskCount > 0 && numSelected === taskCount} className="form-checkbox h-4 w-4 text-emerald-600" /></div>}
+            {visibleColumns.map(col => <HeaderCell key={col.key} label={col.label} />)}
+            {currentView !== 'overview' && <HeaderCell label="操作" />}
+        </div>
             );
         };
         // --- 【更新版】TaskRow ---
@@ -1922,7 +2041,7 @@
                 return { visibleColumns: finalVisibleCols, gridTemplateColumns: widths.join(' ') };
             }, [currentView, currentUserProfile, columnDefinitions, columnWidthMap, availableRoles]); // 注意依赖项也更新了
             // --- 【更新版】renderCell 函数 ---
-            const renderCell = (colKey) => {
+            const renderCellContent = (colKey) => {
                 switch (colKey) {
                     case 'status': { // 使用大括号包裹以创建独立作用域
                         const style = STATUS_STYLES[task.status]?.base || STATUS_STYLES.default.base;
@@ -1936,10 +2055,15 @@
                     }
                     case 'createdAt': return <div>{formatDate(task.createdAt)}</div>;
                     case 'customTaskId': return (
-                        <button onClick={onOpenFlowModal} className="font-mono text-sm text-blue-600 dark:text-blue-400 hover:underline">
-                            {task.customTaskId}
-                        </button>
-                    ); case 'projectName': return <div className="text-slate-800 dark:text-slate-200 whitespace-normal break-words" title={task.projectName}>{task.projectName}</div>;
+    <button 
+        onClick={onOpenFlowModal} 
+        className="font-mono text-sm text-blue-600 dark:text-blue-400 hover:underline w-full break-all text-center"
+        title={task.customTaskId}
+    >
+        {task.customTaskId}
+    </button>
+);
+ case 'projectName': return <div className="text-slate-800 dark:text-slate-200 whitespace-normal break-words" title={task.projectName}>{task.projectName}</div>;
                     case 'taskType': return <div className="whitespace-normal break-words" title={task.taskType}>{task.taskType}</div>;
                     case 'region': return <div>{task.region}</div>;
                     case 'contractAmount':
@@ -2002,29 +2126,66 @@
                     default: return null;
                 }
             };
+            const renderCell = (colKey, label) => (
+        <div className="task-cell" data-label={label}>
+            {renderCellContent(colKey)}
+        </div>
+    );
 
             // --- 新的、正确的 TaskRow return 语句 ---
             return (
                 <div
-                    title={funTooltip}
-                    style={{ gridTemplateColumns }}
-                    className={`task-row-tooltip grid gap-4 px-4 py-2 items-center ${rowBgColor} border-b dark:border-slate-700 text-sm text-slate-700 dark:text-slate-300 text-center hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors duration-200 ${task.is_urgent ? 'task-pulse' : ''}`}>
-                    {currentView !== 'overview' &&
-                        <div className="flex items-center justify-center"><input type="checkbox" className="form-checkbox h-4 w-4 text-emerald-600" checked={isSelected} onChange={() => onSelect(task.id)} /></div>}
-                    {visibleColumns.map(col => <div key={col.key} className="h-full w-full flex items-center justify-center">{renderCell(col.key)}</div>)}
-                    {currentView !== 'overview' && <div className="flex items-center justify-center action-column">
-                        <button
+            title={funTooltip}
+            // --- 桌面端样式 ---
+            style={{ gridTemplateColumns }}
+            className={`task-row-card md:grid md:gap-4 md:px-4 md:py-2 md:items-center ${rowBgColor} md:border-b dark:md:border-slate-700 text-sm text-slate-700 dark:text-slate-300 md:text-center hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors duration-200 ${borderColorClass} ${task.is_urgent ? 'task-pulse' : ''}`}
+        >
+            {/* --- 移动端卡片式布局 --- */}
+            <div className="md:hidden">
+                {/* 卡片头部：包含多选框、任务编号和操作按钮 */}
+                <div className="flex justify-between items-center p-2 bg-slate-50 dark:bg-slate-800">
+                    <div className="flex items-center gap-3">
+                        {currentView !== 'overview' && <input type="checkbox" className="form-checkbox h-4 w-4 text-emerald-600" checked={isSelected} onChange={() => onSelect(task.id)} />}
+                        {renderCellContent('customTaskId')}
+                    </div>
+                    {currentView !== 'overview' && (
+                         <button
                             onClick={() => onActionConfirm('openActionModal', task)}
-                            className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-700 disabled:cursor-not-allowed disabled:text-gray-300 dark:disabled:text-gray-600"
-                            title={availableActions.length > 0 ? "更多操作" : "无可用操作"}
-                            disabled={availableActions.length === 0}
-                        >
+                            className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-700"
+                            title="更多操作">
                             <MoreHorizontal size={20} />
                         </button>
-                    </div>}
+                    )}
                 </div>
-            );
-        };
+                {/* 卡片主体：显示所有可见列的数据 */}
+                <div className="p-2">
+                    {visibleColumns.filter(c => c.key !== 'customTaskId').map(col => (
+                        <React.Fragment key={col.key}>
+                            {renderCell(col.key, col.label)}
+                        </React.Fragment>
+                    ))}
+                </div>
+            </div>
+
+            {/* --- 桌面端表格行布局 (只在 md 及以上屏幕显示) --- */}
+            <div className="hidden md:contents">
+                {currentView !== 'overview' &&
+                    <div className="flex items-center justify-center"><input type="checkbox" className="form-checkbox h-4 w-4 text-emerald-600" checked={isSelected} onChange={() => onSelect(task.id)} /></div>}
+                {visibleColumns.map(col => <div key={col.key} className="h-full w-full flex items-center justify-center">{renderCellContent(col.key)}</div>)}
+                {currentView !== 'overview' && <div className="flex items-center justify-center action-column">
+                    <button
+                        onClick={() => onActionConfirm('openActionModal', task)}
+                        className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-700 disabled:cursor-not-allowed disabled:text-gray-300 dark:disabled:text-gray-600"
+                        title={availableActions.length > 0 ? "更多操作" : "无可用操作"}
+                        disabled={availableActions.length === 0}
+                    >
+                        <MoreHorizontal size={20} />
+                    </button>
+                </div>}
+            </div>
+        </div>
+    );
+};
         const DeletedTaskRow = ({ task, onPermanentDelete, index, onSelect, isSelected, currentUserProfile, columnDefinitions, columnWidthMap, viewColumnMap, onOpenFlowModal }) => {
             const bgColor = isSelected ? 'bg-sky-200 dark:bg-sky-800/50' : (index % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-gray-50/50 dark:bg-slate-800/50');
             const latestProgress = useMemo(() => { if (!task.progressDetails || task.progressDetails.length === 0) return '无'; return [...task.progressDetails].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0].text; }, [task.progressDetails]);
@@ -2324,7 +2485,7 @@
                 ))} </div>) : (<p className="text-center text-sm text-gray-500 dark:text-gray-400 py-4">暂无正式的备份记录。</p>)} </div> </div> </div> <footer className="p-4 flex justify-between items-center gap-4 bg-gray-100 dark:bg-slate-800 rounded-b-xl border-t dark:border-slate-700"> <button onClick={onClearHistory} disabled={history.length === 0} className="px-4 py-2 rounded-md text-white bg-red-600 hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed font-semibold flex items-center gap-2"> <Trash2 size={16} /> 清空历史 </button> <button onClick={onClose} className="px-6 py-2 rounded-md bg-gray-200 hover:bg-gray-300 dark:bg-slate-600 dark:hover:bg-slate-500 dark:text-slate-200 font-semibold ml-auto">关闭</button> </footer> </div> </div>);
         };
         const Clock = ({ onClick }) => { const [time, setTime] = useState(new Date()); useEffect(() => { const timerId = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(timerId); }, []); const formatTime = (date) => { const year = date.getFullYear(); const month = (date.getMonth() + 1).toString().padStart(2, '0'); const day = date.getDate().toString().padStart(2, '0'); const week = ['日', '一', '二', '三', '四', '五', '六'][date.getDay()]; const hours = date.getHours().toString().padStart(2, '0'); const minutes = date.getMinutes().toString().padStart(2, '0'); const seconds = date.getSeconds().toString().padStart(2, '0'); return `${year}-${month}-${day} 星期${week} ${hours}:${minutes}:${seconds}`; }; return (<div onClick={onClick} className="flex items-center gap-2 cursor-pointer p-2 text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700 rounded-full" title="每日一语"> <Calendar size={20} /> <span className="text-sm font-mono whitespace-nowrap hidden md:inline">{formatTime(time)}</span> </div>); };
-// ================== 【全新】滚动名言组件 ==================
+        // ================== 【全新】滚动名言组件 ==================
         const ScrollingQuote = ({ isOpen, onClose, quote }) => {
             if (!isOpen) return null;
             const handleAnimationEnd = () => { onClose(); };
@@ -2337,7 +2498,7 @@
                 </div>
             );
         };
-                // ================== 【全新】庆祝动画组件 ==================
+        // ================== 【全新】庆祝动画组件 ==================
         const ConfettiAnimation = () => {
             const confettiCount = 150;
             const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800'];
@@ -3971,46 +4132,44 @@
             // --- 在您的 TeamManagementModal 组件内部，使用这个 return 语句 ---
             return (
                 <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
-                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col text-gray-800 dark:text-gray-200">
-                        <header className="flex justify-between items-center p-5 border-b border-gray-200 dark:border-slate-700 flex-shrink-0">
-                            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">团队管理</h2>
-                            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700"><X /></button>
-                        </header>
+            {/* --- 【修改点】为弹窗根元素添加响应式宽度 --- */}
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-full md:max-w-4xl lg:max-w-6xl max-h-[90vh] flex flex-col text-gray-800 dark:text-gray-200">
+                <header className="flex justify-between items-center p-5 border-b border-gray-200 dark:border-slate-700 flex-shrink-0">
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">团队管理</h2>
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700"><X /></button>
+                </header>
 
-                        {/* 主体容器 */}
-                        <div className="flex flex-grow min-h-0">
-                            {/* 左侧导航区 */}
-                            <div className="w-48 flex-shrink-0 bg-slate-50 dark:bg-slate-800/50 p-4 border-r dark:border-slate-700">
-                                <nav className="flex flex-col gap-2">
-                                    <button onClick={() => setActiveView('member_management')} className={`px-3 py-2 text-left rounded-md font-semibold text-sm ${activeView === 'member_management' ? 'bg-emerald-500 text-white' : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`}>成员管理</button>
-                                    <button onClick={() => setActiveView('role_management')} className={`px-3 py-2 text-left rounded-md font-semibold text-sm ${activeView === 'role_management' ? 'bg-emerald-500 text-white' : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`}>角色管理</button>
-                                    <button onClick={() => setActiveView('process_management')} className={`px-3 py-2 text-left rounded-md font-semibold text-sm ${activeView === 'process_management' ? 'bg-emerald-500 text-white' : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`}>流程管理</button>
-                                    <button onClick={() => setActiveView('function_permission')} className={`px-3 py-2 text-left rounded-md font-semibold text-sm ${activeView === 'function_permission' ? 'bg-emerald-500 text-white' : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`}>功能权限</button>
-                                    <button onClick={() => setActiveView('task_permission')} className={`px-3 py-2 text-left rounded-md font-semibold text-sm ${activeView === 'task_permission' ? 'bg-emerald-500 text-white' : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`}>任务权限</button>
-                                    <button onClick={() => setActiveView('permission_config')} className={`px-3 py-2 text-left rounded-md font-semibold text-sm ${activeView === 'permission_config' ? 'bg-emerald-500 text-white' : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`}>权限配置</button>
-                                </nav>
-                            </div>
+                <div className="flex flex-grow min-h-0 flex-col md:flex-row"> {/* 【修改点】主布局在移动端垂直堆叠 */}
+                    {/* --- 【修改点】左侧导航区适应移动端 --- */}
+                    <div className="w-full md:w-48 flex-shrink-0 bg-slate-50 dark:bg-slate-800/50 p-2 md:p-4 border-b md:border-b-0 md:border-r dark:border-slate-700">
+                        <nav className="flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-x-visible">
+                            <button onClick={() => setActiveView('member_management')} className={`px-3 py-2 text-left rounded-md font-semibold text-sm flex-shrink-0 ${activeView === 'member_management' ? 'bg-emerald-500 text-white' : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`}>成员管理</button>
+                            <button onClick={() => setActiveView('role_management')} className={`px-3 py-2 text-left rounded-md font-semibold text-sm flex-shrink-0 ${activeView === 'role_management' ? 'bg-emerald-500 text-white' : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`}>角色管理</button>
+                            <button onClick={() => setActiveView('process_management')} className={`px-3 py-2 text-left rounded-md font-semibold text-sm flex-shrink-0 ${activeView === 'process_management' ? 'bg-emerald-500 text-white' : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`}>流程管理</button>
+                            <button onClick={() => setActiveView('function_permission')} className={`px-3 py-2 text-left rounded-md font-semibold text-sm flex-shrink-0 ${activeView === 'function_permission' ? 'bg-emerald-500 text-white' : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`}>功能权限</button>
+                            <button onClick={() => setActiveView('task_permission')} className={`px-3 py-2 text-left rounded-md font-semibold text-sm flex-shrink-0 ${activeView === 'task_permission' ? 'bg-emerald-500 text-white' : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`}>任务权限</button>
+                            <button onClick={() => setActiveView('permission_config')} className={`px-3 py-2 text-left rounded-md font-semibold text-sm flex-shrink-0 ${activeView === 'permission_config' ? 'bg-emerald-500 text-white' : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`}>权限配置</button>
+                        </nav>
+                    </div>
 
-                            {/* 右侧内容区 */}
-                            <div className="flex-grow flex flex-col">
-                                {activeView === 'member_management' && (
-                                    <div className="p-6 flex-grow overflow-y-auto flex flex-col gap-4">
-                                        {/* 邀请新成员 */}
-                                        <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border dark:border-slate-700">
-                                            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">邀请新成员</label>
-                                            <div className="flex gap-2">
-                                                <input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="输入新成员的邮箱地址" className="flex-grow pl-4 pr-4 py-2 w-full border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" />
-                                                <button onClick={handleInviteUser} className="px-5 py-2 font-semibold text-white bg-emerald-500 rounded-md hover:bg-emerald-600 flex-shrink-0">发送邀请</button>
-                                            </div>
-                                        </div>
+                    <div className="flex-grow flex flex-col min-h-0">
+                        {activeView === 'member_management' && (
+                            <div className="p-4 md:p-6 flex-grow overflow-y-auto flex flex-col gap-4">
+                                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border dark:border-slate-700">
+                                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">邀请新成员</label>
+                                    <div className="flex flex-col sm:flex-row gap-2">
+                                        <input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="输入新成员的邮箱地址" className="flex-grow pl-4 pr-4 py-2 w-full border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" />
+                                        <button onClick={handleInviteUser} className="px-5 py-2 font-semibold text-white bg-emerald-500 rounded-md hover:bg-emerald-600 flex-shrink-0">发送邀请</button>
+                                    </div>
+                                </div>
 
                                         {/* 顶部操作区 */}
-                                        <div className="flex justify-between items-center gap-4">
-                                            <div className="flex items-center gap-4">
-                                                <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                                                    <button onClick={() => setDepartmentFilter('技术部门')} className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${departmentFilter === '技术部门' ? 'bg-white dark:bg-slate-700 shadow' : 'hover:bg-slate-200 dark:hover:bg-slate-700/50'}`}>技术部门</button>
-                                                    <button onClick={() => setDepartmentFilter('市场部门')} className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${departmentFilter === '市场部门' ? 'bg-white dark:bg-slate-700 shadow' : 'hover:bg-slate-200 dark:hover:bg-slate-700/50'}`}>业务部门</button>
-                                                </div>
+                                        <div className="flex flex-col md:flex-row justify-between items-center gap-4 flex-wrap">
+                                    <div className="flex items-center gap-4 flex-wrap">
+                                        <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                                            <button onClick={() => setDepartmentFilter('技术部门')} className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${departmentFilter === '技术部门' ? 'bg-white dark:bg-slate-700 shadow' : 'hover:bg-slate-200 dark:hover:bg-slate-700/50'}`}>技术部门</button>
+                                            <button onClick={() => setDepartmentFilter('市场部门')} className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${departmentFilter === '市场部门' ? 'bg-white dark:bg-slate-700 shadow' : 'hover:bg-slate-200 dark:hover:bg-slate-700/50'}`}>业务部门</button>
+                                        </div>
                                                 {selectedUsers.size > 0 && (() => {
                                                     const selectedUserDetails = users.filter(u => selectedUsers.has(u.id));
                                                     const canBulkApprove = selectedUserDetails.length > 0 && selectedUserDetails.every(u => u.role === 'pending');
@@ -4028,11 +4187,11 @@
                                                     )
                                                 })()}
                                             </div>
-                                            <div className="relative w-full max-w-xs">
-                                                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                                                <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="按邮箱搜索..." className="pl-11 pr-4 py-3 w-full border rounded-lg" />
-                                            </div>
-                                        </div>
+                                            <div className="relative w-full md:max-w-xs">
+                                        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                                        <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="按邮箱搜索..." className="pl-11 pr-4 py-2 w-full border rounded-lg bg-slate-50 dark:bg-slate-700" />
+                                    </div>
+                                </div>
 
                                         {/* 表格 */}
                                         <div className="overflow-x-auto border rounded-lg dark:border-slate-700">
@@ -5009,8 +5168,7 @@
                     <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-lg">
                         <header className="p-4 border-b dark:border-slate-700">
                             <h2 className="text-xl font-bold">{title}</h2>
-                            <p className="text-sm text-gray-500 mt-1">为任务: {task?.customTaskId}</p>
-                        </header>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">任务: {generateTaskSummary(task)}</p>                        </header>
                         <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
                             <div><label className="block text-sm font-medium mb-1">项目负责人 (来自: {task?.execution_department || '未知'})</label><SingleSelectDropdown options={personnelOptions.tech} value={assignments.project_manager} onChange={(val) => handleSelect('project_manager', val)} placeholder="选择项目负责人" /></div>
                             <div><label className="block text-sm font-medium mb-1">审核人 (来自: {task?.execution_department || '未知'})</label><SingleSelectDropdown options={personnelOptions.tech} value={assignments.auditor_name} onChange={(val) => handleSelect('auditor_name', val)} placeholder="选择审核人" /></div>
@@ -5357,10 +5515,9 @@
 
             return (
                 <div
-                    ref={wrapperRef}
-                    className={`absolute top-0 right-0 bottom-0 bg-white dark:bg-slate-900 shadow-2xl z-40 transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
-                    style={{ width: 'clamp(800px, 120vw, 950px)' }}
-                >
+    ref={wrapperRef}
+    className={`absolute top-0 right-0 bottom-0 bg-white dark:bg-slate-900 shadow-2xl z-40 transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'} w-full max-w-lg md:max-w-3xl lg:max-w-5xl`}
+>
                     <div className="flex flex-col h-full">
                         <header className="flex-shrink-0 p-4 border-b border-slate-200 dark:border-slate-700">
                             <div className="flex justify-between items-start">
@@ -5379,9 +5536,56 @@
                             </div>
                         </header>
 
-                        <main className="flex-grow flex flex-col min-h-0">
-                            <h4 className="flex-shrink-0 px-4 pt-4 pb-2 text-base font-semibold text-slate-800 dark:text-slate-100">流程时间轴</h4>
-                            <section className="flex-shrink-0 px-6 pb-28 pt-20">
+                        <main className="flex-grow min-h-0 overflow-y-auto"> {/* <-- 【修改点】在这里添加了 overflow-y-auto */}
+    <div className="flex-shrink-0"> {/* <-- 【修改点】用一个 div 包裹非滚动内容 */}
+        <h4 className="px-4 pt-4 pb-2 text-base font-semibold text-slate-800 dark:text-slate-100">流程时间轴</h4>
+    </div>
+<section className="flex-shrink-0 p-6 md:hidden">
+    <div className="relative border-l-2 border-slate-200 dark:border-slate-600 ml-2">
+        {flowEvents.map((event, index) => {
+            const isPast = index < currentStageIndex;
+            const isCurrent = index === currentStageIndex;
+            const nodeColorClass = isCurrent ? 'bg-blue-500 ring-4 ring-blue-200 dark:ring-blue-800/50' : isPast ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-500';
+
+            let statusText = event.label;
+            let timeText = '未开始';
+            let actorText = '';
+            const responsiblePersonField = WORKFLOW_CONFIG[event.stageKey]?.responsible;
+            const responsiblePersonName = responsiblePersonField ? userMap.get(task[responsiblePersonField]) || '待分配' : '';
+            if (responsiblePersonName) {
+                actorText = `负责人: ${responsiblePersonName}`;
+            }
+            if (isCurrent) {
+                timeText = `开始于 ${formatDateTime(event.timestamp)}`;
+            } else if (isPast) {
+                statusText = event.pastTenseLabel;
+                timeText = `完成于 ${formatDateTime(event.timestamp)}`;
+                if (event.actor && event.actor !== responsiblePersonName) {
+                    actorText += ` (由 ${event.actor} 完成)`;
+                }
+            }
+            if (event.stageKey === 'done') {
+                statusText = task.isArchived ? "已归档" : "已完成";
+                actorText = task.isArchived ? `存档于 ${formatDateTime((task.history || []).find(h => h.action === '存档了任务')?.timestamp)}` : '未存档';
+                timeText = `完成于 ${formatDateTime(event.timestamp)}`;
+            }
+
+            return (
+                <div key={event.stageKey} className="mb-8 pl-8 relative">
+                    <div className={`absolute -left-[7px] top-1 w-3 h-3 rounded-full z-10 ${nodeColorClass}`}></div>
+                    <div className="p-3 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-lg shadow-sm">
+                        <p className={`font-bold text-sm ${isCurrent ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-200'}`}>{statusText}</p>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 space-y-1">
+                            <p className="truncate" title={actorText}>{actorText || ' '}</p>
+                            <p className="font-mono text-slate-400 dark:text-slate-500">{timeText}</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        })}
+    </div>
+</section>
+                            <section className="flex-shrink-0 px-6 pb-28 pt-20 hidden md:block">
                                 <div className="relative w-full">
                                     <div className="absolute top-1.5 left-6 right-6 h-0.5 bg-slate-200 dark:bg-slate-600"></div>
                                     <div className="relative flex justify-center gap-x-24">
@@ -5442,9 +5646,10 @@
                                 </div>
                             </section>
 
-                            <div className="flex-shrink-0 border-t border-slate-200 dark:border-slate-700 mx-4"></div>
-                            <h4 className="flex-shrink-0 px-4 pt-4 pb-2 text-base font-semibold text-slate-800 dark:text-slate-100">信息修改日志</h4>
-
+                            <div className="flex-shrink-0"> {/* <-- 【修改点】用一个 div 包裹非滚动内容 */}
+        <div className="border-t border-slate-200 dark:border-slate-700 mx-4"></div>
+        <h4 className="px-4 pt-4 pb-2 text-base font-semibold text-slate-800 dark:text-slate-100">信息修改日志</h4>
+    </div>
                             <section className="flex-grow p-4 overflow-y-auto">
                                 {modificationLog.length > 0 ? (
                                     <ul className="space-y-2 text-sm">
@@ -5487,7 +5692,7 @@
                     <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-lg">
                         <header className="p-4 border-b dark:border-slate-700">
                             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">退回任务</h2>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">任务: {task.customTaskId}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">任务: {generateTaskSummary(task)}</p>
                         </header>
                         <div className="p-6">
                             <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">请输入退回原因 (必填)</label>
@@ -5507,7 +5712,51 @@
                 </div>
             );
         };
+        // --- 在这里粘贴下面的新组件 ---
+        const BulkReturnModal = ({ isOpen, onClose, onConfirm, taskCount }) => {
+            const [reason, setReason] = useState('');
 
+            useEffect(() => {
+                if (isOpen) setReason('');
+            }, [isOpen]);
+
+            if (!isOpen) return null;
+
+            const handleConfirm = () => {
+                if (!reason.trim()) {
+                    alert('退回原因不能为空。');
+                    return;
+                }
+                onConfirm(reason.trim());
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-lg">
+                        <header className="p-4 border-b dark:border-slate-700">
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">批量退回任务</h2>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                将为选中的 <span className="font-semibold text-orange-500">{taskCount}</span> 个任务统一填写退回原因。
+                            </p>
+                        </header>
+                        <div className="p-6">
+                            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">请输入退回原因 (必填)</label>
+                            <textarea
+                                value={reason}
+                                onChange={(e) => setReason(e.target.value)}
+                                rows="4"
+                                className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200"
+                                placeholder="例如：资料不全，需要补充..."
+                            />
+                        </div>
+                        <footer className="p-4 flex justify-end gap-4 bg-gray-100 dark:bg-slate-800 rounded-b-xl border-t dark:border-slate-700">
+                            <button onClick={onClose} className="px-4 py-2 rounded-md text-slate-700 bg-slate-200 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 dark:text-slate-200 font-semibold">取消</button>
+                            <button onClick={handleConfirm} className="px-6 py-2 rounded-md text-white bg-orange-500 hover:bg-orange-600 font-semibold">确认退回</button>
+                        </footer>
+                    </div>
+                </div>
+            );
+        };
         // --- 登录组件 ---
         // --- 【全新简化版】Login 组件 ---
         const Login = ({ authError }) => {
@@ -5537,29 +5786,33 @@
             const passwordStrength = useMemo(() => getPasswordStrength(password), [password]);
             const strengthColors = ['bg-gray-300', 'bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500'];
             const strengthLabels = ['很弱', '较弱', '中等', '良好', '很强'];
-// --- 辅助函数：翻译常见的认证错误信息 ---
+            // --- 辅助函数：翻译常见的认证错误信息 ---
             const translateAuthError = (message) => {
                 if (message.includes("Email not confirmed")) return "您的邮箱尚未验证，请检查收件箱并点击验证链接。";
                 if (message.includes("User already registered")) return "此邮箱地址已被注册，请直接登录或找回密码。";
                 // --- 新增：专门翻译“is invalid”错误 ---
                 if (message.includes("is invalid")) {
-                    return "您输入的邮箱地址格式无效，请检查后重试。";}
+                    return "您输入的邮箱地址格式无效，请检查后重试。";
+                }
                 if (message.includes("Invalid login credentials")) return "邮箱或密码错误，请检查后重试。";
                 if (message.includes("Password should be at least 6 characters")) return "密码长度至少需要6位。";
                 if (message.includes("Unable to validate email address: invalid format")) return "请输入有效的邮箱地址。";
                 return message; // 如果没有匹配的翻译，则返回原始信息
             };
-            const handlePasswordReset = async (e) => { e.preventDefault(); setLoading(true); setError(null); setMessage(null);
-                 try { 
+            const handlePasswordReset = async (e) => {
+                e.preventDefault(); setLoading(true); setError(null); setMessage(null);
+                try {
                     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                         redirectTo: 'https://guoliang396382608-cloud.github.io/my-task-app/set-password.html'
-        });
-                          if (error) throw error;
-                           if (isMounted.current) setMessage('密码重置链接已发送，请检查您的邮箱。');
-                         }
-                          catch (error) { if (isMounted.current) setError(error.message);
-                           }
-                            finally { if (isMounted.current) setLoading(false); } };
+                        redirectTo: 'https://guoliang396382608-cloud.github.io/my-task-app/set-password.html'
+                    });
+                    if (error) throw error;
+                    if (isMounted.current) setMessage('密码重置链接已发送，请检查您的邮箱。');
+                }
+                catch (error) {
+                    if (isMounted.current) setError(error.message);
+                }
+                finally { if (isMounted.current) setLoading(false); }
+            };
             const handleAuth = async (e) => {
                 e.preventDefault();
                 setLoading(true);
@@ -5593,7 +5846,7 @@
 
                         // --- 核心修复：检查返回数据，判断是否为重复注册 ---
                         if (response.data.user && response.data.user.identities && response.data.user.identities.length === 0) {
-                             throw new Error("User already registered"); // 手动抛出一个可识别的错误
+                            throw new Error("User already registered"); // 手动抛出一个可识别的错误
                         }
 
                         if (isMounted.current) {
@@ -5607,7 +5860,7 @@
                     }
                 } catch (error) {
                     if (isMounted.current) setError(translateAuthError(error.message));
-                    } finally {
+                } finally {
                     if (isMounted.current) setLoading(false);
                 }
             };
@@ -5811,6 +6064,7 @@
             const [flowTask, setFlowTask] = useState(null); // 用于控制流程详情面板的显示和任务数据
             const [isBulkAssignModalOpen, setIsBulkAssignModalOpen] = useState(false);
             const [isBulkTransferModalOpen, setIsBulkTransferModalOpen] = useState(false);
+            const [isBulkReturnModalOpen, setIsBulkReturnModalOpen] = useState(false);
             const [contractInfoTask, setContractInfoTask] = useState(null); // <-- 在这里添加新状态
             const [showConfetti, setShowConfetti] = useState(false);
             const salesPersonOptions = useMemo(() =>
@@ -6026,8 +6280,10 @@
 
                 const reconcileAutoNotifications = async () => {
                     try {
-                        const notificationsToInsert = [];
+                        // --- 核心修正：在此处统一声明一个数组 ---
+                        const notificationsToUpsert = [];
                         const now = new Date();
+                        now.setHours(0, 0, 0, 0); // 标准化时间，以便于日期比较
 
                         // --- 1. 升级版“备份提醒”逻辑 ---
                         const { data: existingBackupNotification, error: fetchBackupError } = await supabase
@@ -6054,7 +6310,8 @@
 
                         // 只有在需要提醒且当前不存在提醒时，才添加
                         if (shouldRemindBackup && !existingBackupNotification) {
-                            notificationsToInsert.push({
+                            // --- 核心修正：使用统一的数组 ---
+                            notificationsToUpsert.push({
                                 user_id: session.user.id,
                                 type: 'backup_reminder',
                                 message: '数据备份提醒：您已超过30天未执行全量备份（或自注册以来），建议及时处理。',
@@ -6063,12 +6320,22 @@
                         }
 
                         // --- 2. 修复版“紧急任务提醒”逻辑 ---
-                        const inProgressTasks = tasksVisibleToUser.filter(t => t.status === 'inprogress');
+                        const activeTasks = tasksVisibleToUser.filter(t => t.status !== 'done' && t.status !== 'void');
 
-                        const urgentTasks = inProgressTasks.filter(t =>
-                            t.contractualDueDate &&
-                            (new Date(t.contractualDueDate) - now) / (1000 * 3600 * 24) <= 7
-                        );
+                        // --- 替换为下面这段修正后的代码 ---
+                        const urgentTasks = activeTasks.filter(t => {
+                            if (!t.contractualDueDate) return false;
+
+                            // 在筛选阶段就对截止日期进行标准化处理
+                            const dueDate = new Date(t.contractualDueDate);
+                            dueDate.setHours(0, 0, 0, 0);
+
+                            // 使用与消息生成器完全相同的 Math.ceil 逻辑来确保一致性
+                            const diffDays = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+
+                            // 返回正确的比较结果
+                            return diffDays <= 7;
+                        });
 
                         if (urgentTasks.length > 0) {
                             const { data: existingUrgentNotifications, error: fetchUrgentError } = await supabase
@@ -6079,13 +6346,14 @@
 
                             urgentTasks.forEach(task => {
                                 const notificationId = `urgent-${task.id}`;
-                                const diffDays = Math.ceil((new Date(task.contractualDueDate) - now) / (1000 * 3600 * 24));
+                                const dueDate = new Date(task.contractualDueDate);
+                                dueDate.setHours(0, 0, 0, 0);
+                                const diffDays = Math.ceil((dueDate - now) / (1000 * 3600 * 24));
                                 const duration = formatDuration(diffDays);
-                                const newMessage = `任务 "${task.projectName}" ${duration.status} (${duration.time})。`;
-
-                                // 如果尚不存在该任务的通知，或者通知内容已过时，则添加/更新
+                                const newMessage = `任务 ${generateTaskSummary(task)} ${duration.status} (${duration.time})。`;
                                 if (!existingMap.has(notificationId) || existingMap.get(notificationId) !== newMessage) {
-                                    notificationsToInsert.push({
+                                    // --- 核心修正：使用统一的数组 ---
+                                    notificationsToUpsert.push({
                                         user_id: session.user.id,
                                         notification_id: notificationId,
                                         type: 'urgent_task',
@@ -6097,9 +6365,9 @@
                         }
 
                         // --- 3. 统一执行数据库操作 ---
-                        if (notificationsToInsert.length > 0) {
-                            // 使用 upsert 智能地插入或更新通知
-                            const { error } = await supabase.from('notifications').upsert(notificationsToInsert, { onConflict: 'user_id, notification_id' });
+                        // --- 核心修正：判断统一的数组 ---
+                        if (notificationsToUpsert.length > 0) {
+                            const { error } = await supabase.from('notifications').upsert(notificationsToUpsert, { onConflict: 'user_id, notification_id' });
                             if (error) throw error;
                         }
 
@@ -6381,7 +6649,7 @@
                 { key: 'sourcing_department', label: '所属市场部门' }, // <-- 新增
                 { key: 'projectManager', label: '项目负责人' },
                 { key: 'execution_department', label: '所属技术部门' }, // <-- 新增
-                { key: 'contractualDueDate', label: '合同规定完成日期' }, { key: 'actualCompletionDate', label: '实际完成日期' },
+                { key: 'contractualDueDate', label: '合同规定日期' }, { key: 'actualCompletionDate', label: '实际完成日期' },
                 { key: 'timeRemaining', label: '剩余/完成时间' }, { key: 'progressDetails', label: '项目进展情况' }, { key: 'isArchived', label: '存档' }
             ];
 
@@ -6460,21 +6728,21 @@
             const COLUMN_WIDTH_MAP = {
                 checkbox: 'auto',
                 status: '0.8fr',
-                createdAt: '1fr',
-                customTaskId: '1fr',
-                projectName: '2.5fr',
+                createdAt: '1.1fr',
+                customTaskId: '1.2fr',
+                projectName: '2fr',
                 taskType: '1.5fr',
                 region: '0.8fr',
                 // department: '1.2fr', // <-- 删除这一行
                 sourcing_department: '1.2fr', // <-- 新增
-                execution_department: '1.2fr', // <-- 新增
+                execution_department: '1.8fr', // <-- 新增
                 contractAmount: '1fr',
                 salesPerson: '1fr',
                 projectManager: '1fr',
-                contractualDueDate: '1fr',
-                actualCompletionDate: '1fr',
-                timeRemaining: '1fr',
-                progressDetails: '3fr',
+                contractualDueDate: '1.2fr',
+                actualCompletionDate: '1.2fr',
+                timeRemaining: '1.2fr',
+                progressDetails: '2.5fr',
                 isArchived: '0.8fr',
                 actions: '0.5fr'
             };
@@ -6745,7 +7013,7 @@
                 return permittedTasks.filter(task => {
                     // --- 1. 部门筛选逻辑 ---
                     const { department } = activeFilters;
-                    const departmentMatch = !department || task.execution_department === department;
+                    const departmentMatch = department === 'all' || !department || task.sourcing_department === department || task.execution_department === department;
 
                     // --- 2. 全新的多关键词搜索逻辑 ---
                     const searchKeywords = debouncedSearchTerm.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -7334,6 +7602,9 @@
                     setConfirmationState({ isOpen: true, title, children: message, onConfirm, confirmVariant: variant });
                 };
 
+                // 使用新函数生成标准摘要
+                const taskSummary = generateTaskSummary(data);
+
                 switch (actionType) {
                     case 'openActionModal': setActionModalState({ isOpen: true, task: data }); return;
                     case 'openContractDetails': setContractInfoTask(data); return;
@@ -7341,18 +7612,18 @@
                     case 'progress': setHistoryTask(data); setIsHistoryModalOpen(true); return;
 
                     // 新的、带确认的流程
-                    case 'submit': openConfirmation('提交任务', `您确定要提交任务 "${data.projectName}" 进入下一阶段吗？`, () => handleSubmitTask(data.id)); return;
-                    case 'emergency': openConfirmation(data.is_urgent ? '取消加急' : '标记加急', `您确定要为任务 "${data.projectName}" ${data.is_urgent ? '取消加急' : '标记为加急'}吗？`, () => handleToggleUrgent(data.id)); return;
+                    case 'submit': openConfirmation('提交任务', `您确定要提交任务 "${taskSummary}" 进入下一阶段吗？`, () => handleSubmitTask(data.id)); return;
+                    case 'emergency': openConfirmation(data.is_urgent ? '取消加急' : '标记加急', `您确定要为任务 "${taskSummary}" ${data.is_urgent ? '取消加急' : '标记为加急'}吗？`, () => handleToggleUrgent(data.id)); return;
                     case 'assign': setActionableTask(data); setIsAssignModalOpen(true); return;
                     case 'transfer': setActionableTask(data); setIsAssignModalOpen(true); return; // Re-use the same modal
                     case 'return': setActionableTask(data); setIsReturnModalOpen(true); return;
                     case 'archive':
-                        openConfirmation('存档任务', `您确定要存档任务 "${data.projectName}" 吗？`, () => handleArchiveTask(data.id));
+                        openConfirmation('存档任务', `您确定要存档任务 "${taskSummary}" 吗？`, () => handleArchiveTask(data.id));
                         return;
                     // 旧的、带确认的流程
-                    case 'void': openConfirmation('作废任务', `您确定要作废任务 "${data.projectName}" 吗？`, () => handleVoidTask(data.id), 'danger'); return;
-                    case 'delete': openConfirmation('删除任务', `您确定要将任务 "${data.projectName}" 移入回收站吗？`, () => handleDeleteTask(data.id), 'danger'); return;
-                    case 'permanentDelete': openConfirmation('永久删除任务', `您确定要永久删除任务 "${data.projectName}" 吗？此操作无法撤销。`, () => handlePermanentDelete(data.id), 'danger'); return;
+                    case 'void': openConfirmation('作废任务', `您确定要作废任务 "${taskSummary}" 吗？`, () => handleVoidTask(data.id), 'danger'); return;
+                    case 'delete': openConfirmation('删除任务', `您确定要将任务 "${taskSummary}" 移入回收站吗？`, () => handleDeleteTask(data.id), 'danger'); return;
+                    case 'permanentDelete': openConfirmation('永久删除任务', `您确定要永久删除任务 "${taskSummary}" 吗？此操作无法撤销。`, () => handlePermanentDelete(data.id), 'danger'); return;
                     case 'clearBin': openConfirmation('清空回收站', `您确定要永久删除所有 ${deletedTasks.length} 个任务吗？`, () => handleClearRecycleBin(), 'danger'); return;
                     default: return;
                 }
@@ -7360,7 +7631,6 @@
             const handleBulkAction = (action) => {
                 if (action === 'clearSelection') { setSelectedTasks(new Set()); return; }
 
-                // --- 核心修改：为新功能添加处理逻辑 ---
                 if (action === 'bulkAssign') {
                     setIsBulkAssignModalOpen(true);
                     return;
@@ -7370,15 +7640,23 @@
                     return;
                 }
                 if (action === 'bulkReturn') {
-                    // 对于批量退回，我们使用一个简单的输入框来获取原因
-                    const reason = prompt(`请输入批量退回的统一原因（必填）：`);
-                    if (reason && reason.trim()) {
-                        handleConfirmBulkReturn(reason.trim());
-                    }
+                    setIsBulkReturnModalOpen(true); // <-- 修改为此行
                     return;
                 }
 
-                // 处理提交和危险操作的确认弹窗
+                // --- 以下是修改的核心区域 ---
+
+                // 预先生成任务列表的通用 JSX 模块
+                const taskListJsx = (
+                    <div className="mt-4 max-h-48 overflow-y-auto bg-slate-100 dark:bg-slate-700 p-3 rounded-md text-sm text-left">
+                        <ul className="list-disc pl-5 space-y-1">
+                            {selectedTaskObjects.map(task => (
+                                <li key={task.id}>{generateTaskSummary(task)}</li>
+                            ))}
+                        </ul>
+                    </div>
+                );
+
                 let confirmationData;
                 if (action === 'bulkSubmit') {
                     const viewToActionMap = { reviewing: '评审', assigning: '分配', inprogress: '提交', auditing: '提交审核', rechecking: '提交复核', issuing: '提交签发' };
@@ -7386,12 +7664,22 @@
                     confirmationData = {
                         title: `批量${actionText}任务`,
                         onConfirm: () => handleConfirmBulkSubmit(),
-                        children: (<div><p>您确定要将选中的 <span className="font-bold">{selectedTasks.size}</span> 个任务${actionText}到下一阶段吗？</p>{/* ... 任务列表 ... */}</div>)
+                        children: (<div><p>您确定要将选中的 <span className="font-bold">{selectedTasks.size}</span> 个任务{actionText}到下一阶段吗？</p>{taskListJsx}</div>)
                     };
                 } else if (action === 'bulkVoid') {
-                    confirmationData = { title: '批量作废任务', confirmVariant: 'danger', onConfirm: handleConfirmBulkVoid, children: (<div><p>您确定要作废选中的 <span className="font-bold">{selectedTasks.size}</span> 个任务吗？</p>{/* ... 任务列表 ... */}</div>) };
+                    confirmationData = {
+                        title: '批量作废任务',
+                        confirmVariant: 'danger',
+                        onConfirm: handleConfirmBulkVoid,
+                        children: (<div><p>您确定要作废选中的 <span className="font-bold">{selectedTasks.size}</span> 个任务吗？</p>{taskListJsx}</div>)
+                    };
                 } else if (action === 'bulkDelete') {
-                    confirmationData = { title: '批量删除任务', confirmVariant: 'danger', onConfirm: handleConfirmBulkDelete, children: (<div><p>您确定要删除选中的 <span className="font-bold">{selectedTasks.size}</span> 个任务吗？</p>{/* ... 任务列表 ... */}</div>) };
+                    confirmationData = {
+                        title: '批量删除任务',
+                        confirmVariant: 'danger',
+                        onConfirm: handleConfirmBulkDelete,
+                        children: (<div><p>您确定要删除选中的 <span className="font-bold">{selectedTasks.size}</span> 个任务吗？</p>{taskListJsx}</div>)
+                    };
                 }
 
                 if (confirmationData) {
@@ -7403,7 +7691,7 @@
                             confirmationData.onConfirm();
                             closeConfirmationModal();
                         },
-                        children: confirmationData.children // 确保任务列表预览能正确传递
+                        children: confirmationData.children
                     });
                 }
             };
@@ -7444,7 +7732,7 @@
                 // --- 1. 定义表头和下拉选项 ---
                 const templateHeaders = [
                     "任务编号", "项目名称", "任务类型", "所属地区", "承接部门(市场)", "执行部门(技术)",
-                    "合同金额(元)", "任务下达日期", "合同规定完成日期", "实际完成日期", "业务人员",
+                    "合同金额(元)", "任务下达日期", "合同规定日期", "实际完成日期", "业务人员",
                     "评审人员", "项目负责人", "审核人", "复核人", "签发人", "状态", "项目进展情况", "是否存档"
                 ];
                 const statusOptions = ['评审中', '待分配', '进行中', '审核中', '复核中', '签发中', '已完成', '已作废'];
@@ -7586,7 +7874,7 @@
                                 execution_department: row["执行部门(技术)"] || '',
                                 contractAmount: Number(row["合同金额(元)"]) || null,
                                 createdAt: parseDate(row["任务下达日期"]),
-                                contractualDueDate: parseDate(row["合同规定完成日期"]),
+                                contractualDueDate: parseDate(row["合同规定日期"]),
                                 actualCompletionDate: parseDate(row["实际完成日期"]),
                                 salesPerson: salesPersonId,
                                 reviewerId: reviewerId,
@@ -7697,7 +7985,7 @@
                     showNotification("您没有任何可备份的任务。", "error");
                     return;
                 }
-                const dataForExport = allTasksWithData.map(task => { const combinedHistory = [...(task.history || []).map(h => ({ ...h, type: '操作' })), ...(task.progressDetails || []).map(p => ({ timestamp: p.timestamp, action: `进展: ${p.text}`, type: '进展' }))].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)); const historyString = combinedHistory.map(entry => `[${formatDateTime(entry.timestamp)}] ${entry.action}`).join('\n'); let statusText = statusMap[task.status] || task.status; if (deletedTasks.some(dt => dt.id === task.id)) { statusText = "回收站"; } return { "任务下达日期": formatDate(task.createdAt), "任务编号": task.customTaskId, "项目名称": task.projectName, "任务类型": task.taskType, "所属部门": task.department, "合同金额(元)": task.contractAmount, "业务人员": task.salesPerson, "项目负责人": task.projectManager, "合同规定完成日期": formatDate(task.contractualDueDate), "实际完成日期": formatDate(task.actualCompletionDate), "所属地区": task.region, "是否存档": task.isArchived ? "是" : "否", "状态": statusText, "项目进展与修改全记录": historyString, }; }); try { const ws = window.XLSX.utils.json_to_sheet(dataForExport); const cols = Object.keys(dataForExport[0] || {}).map(key => ({ wch: key === "项目进展与修改全记录" ? 80 : (key === "项目名称" ? 40 : 20) })); ws['!cols'] = cols; const wb = window.XLSX.utils.book_new(); window.XLSX.utils.book_append_sheet(wb, ws, "系统全量数据"); window.XLSX.writeFile(wb, `系统全量备份_${formatDate(new Date())}.xlsx`); handleBackupSuccess(allTasksWithData.length); } catch (e) { console.error("Full backup export failed:", e); showNotification("全量备份失败，详情请查看控制台。", "error"); }
+                const dataForExport = allTasksWithData.map(task => { const combinedHistory = [...(task.history || []).map(h => ({ ...h, type: '操作' })), ...(task.progressDetails || []).map(p => ({ timestamp: p.timestamp, action: `进展: ${p.text}`, type: '进展' }))].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)); const historyString = combinedHistory.map(entry => `[${formatDateTime(entry.timestamp)}] ${entry.action}`).join('\n'); let statusText = statusMap[task.status] || task.status; if (deletedTasks.some(dt => dt.id === task.id)) { statusText = "回收站"; } return { "任务下达日期": formatDate(task.createdAt), "任务编号": task.customTaskId, "项目名称": task.projectName, "任务类型": task.taskType, "所属部门": task.department, "合同金额(元)": task.contractAmount, "业务人员": task.salesPerson, "项目负责人": task.projectManager, "合同规定日期": formatDate(task.contractualDueDate), "实际完成日期": formatDate(task.actualCompletionDate), "所属地区": task.region, "是否存档": task.isArchived ? "是" : "否", "状态": statusText, "项目进展与修改全记录": historyString, }; }); try { const ws = window.XLSX.utils.json_to_sheet(dataForExport); const cols = Object.keys(dataForExport[0] || {}).map(key => ({ wch: key === "项目进展与修改全记录" ? 80 : (key === "项目名称" ? 40 : 20) })); ws['!cols'] = cols; const wb = window.XLSX.utils.book_new(); window.XLSX.utils.book_append_sheet(wb, ws, "系统全量数据"); window.XLSX.writeFile(wb, `系统全量备份_${formatDate(new Date())}.xlsx`); handleBackupSuccess(allTasksWithData.length); } catch (e) { console.error("Full backup export failed:", e); showNotification("全量备份失败，详情请查看控制台。", "error"); }
             };
             const handleClockClick = async () => {
                 const todayStr = new Date().toISOString().split('T')[0];
@@ -7745,7 +8033,7 @@
                 const techDepartments = (managementData.department_structure?.technical?.sub_departments || []).sort((a, b) => a.localeCompare(b, 'zh-CN'));
                 const marketingDepartments = (managementData.department_structure?.marketing?.sub_departments || []).sort((a, b) => a.localeCompare(b, 'zh-CN'));
 
-                const options = [{ label: '所有部门', value: null }];
+                const options = [{ label: '所有部门', value: 'all' }];
                 if (techDepartments.length > 0) {
                     options.push({
                         isGroup: true,
@@ -7871,7 +8159,7 @@
                         onClearSelection={() => setSelectedNotifications(new Set())} // <-- 新增这一行
                     />
                     <BackupManagementModal isOpen={isBackupModalOpen} onClose={() => setIsBackupModalOpen(false)} history={backupHistory} onClearHistory={handleClearBackupHistory} onBackup={exportFullBackup} userMap={userMap} />
-<ScrollingQuote isOpen={isQuoteModalOpen} onClose={() => setIsQuoteModalOpen(false)} quote={dailyQuote} />                    <TeamManagementModal
+                    <ScrollingQuote isOpen={isQuoteModalOpen} onClose={() => setIsQuoteModalOpen(false)} quote={dailyQuote} />                    <TeamManagementModal
                         isOpen={isTeamModalOpen}
                         onClose={() => setIsTeamModalOpen(false)}
                         showNotification={showNotification}
@@ -7933,35 +8221,33 @@
                         profiles={profiles}
                         userMap={userMap}
                     />
+                    <BulkReturnModal
+                        isOpen={isBulkReturnModalOpen}
+                        onClose={() => setIsBulkReturnModalOpen(false)}
+                        onConfirm={(reason) => {
+                            handleConfirmBulkReturn(reason);
+                            setIsBulkReturnModalOpen(false);
+                        }}
+                        taskCount={selectedTasks.size}
+                    />
                     <input type="file" id="fileUploader" accept=".xlsx, .xls, .csv" style={{ display: 'none' }} onChange={handleFileUpload} />
 
-                    <header className="flex-shrink-0 flex flex-wrap items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
+                    {/* --- 【修改点】让 header 可以在小屏幕上换行 --- */}
+                    <header className="flex-shrink-0 flex flex-wrap items-center justify-between gap-y-4 gap-x-8 mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
                         <div>
                             <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 dark:text-slate-100">咨询任务管理系统</h1>
                             <p className="text-sm text-slate-500 dark:text-slate-400">版本 4.2.3 - 协作版</p>
                         </div>
-                        <div className="flex items-center gap-4 ml-auto">
+                        {/* --- 【修改点】让右侧按钮组在需要时也能换行 --- */}
+                        <div className="flex items-center gap-2 flex-wrap justify-end">
                             <span className="text-sm font-medium text-slate-600 dark:text-slate-300 hidden md:inline">
                                 欢迎, {session.user.user_metadata.display_name || (currentUserProfile && currentUserProfile.username) || session.user.email}
                             </span>
-
-                            {/* --- 新增的个人资料按钮 --- */}
-                            <button
-                                onClick={() => setIsProfileModalOpen(true)}
-                                className="p-2 text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700 rounded-full"
-                                title="修改个人资料"
-                            >
-                                <Users size={20} />
-                            </button>
-
-                            <button onClick={() => supabase.auth.signOut()} className="flex items-center gap-2 px-3 py-2 bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200 rounded-lg font-semibold shadow-sm hover:bg-slate-300 dark:hover:bg-slate-600">
-                                <LogOut size={16} />
-                                <span>登出</span>
-                            </button>
+                            <button onClick={() => setIsProfileModalOpen(true)} className="p-2 text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700 rounded-full" title="修改个人资料"><Users size={20} /></button>
+                            <button onClick={() => supabase.auth.signOut()} className="flex items-center gap-2 px-3 py-2 bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200 rounded-lg font-semibold shadow-sm hover:bg-slate-300 dark:hover:bg-slate-600"><LogOut size={16} /><span>登出</span></button>
                         </div>
                     </header>
-
-                    <div className="flex-shrink-0 mb-4 flex items-center gap-4 flex-wrap">
+                    <div className="flex-shrink-0 mb-4 flex items-center gap-x-4 gap-y-2 flex-wrap">
                         <div className="flex gap-2 flex-wrap">
                             {currentUserEffectivePermissions.canCreateTask &&
                                 <button onClick={() => handleOpenModal()} className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg font-semibold shadow-sm hover:bg-emerald-600"><Plus size={18} />创建任务</button>
@@ -8000,48 +8286,51 @@
 
                     <main className="relative bg-white dark:bg-slate-800/50 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 flex flex-col flex-grow min-h-0 overflow-hidden">
                         {/* --- 1. 顶部的标签页和搜索框区域 (保持不变) --- */}
-                        <div className="flex-shrink-0 p-2 bg-slate-100/70 dark:bg-slate-800 rounded-t-xl border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
-                            <div className="flex items-center gap-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-lg p-1">
-                                {visibleViews.length > 0 ? (
-                                    visibleViews.map(view => {
-                                        if (view.type === 'divider') {
-                                            return <div key={Math.random()} className="h-6 w-px bg-slate-200 dark:bg-slate-600"></div>;
-                                        }
-                                        const { key, label } = view;
-                                        const count = viewCounts[key] || 0;
-                                        return (
-                                            <TabButton
-                                                key={key}
-                                                viewKey={key}
-                                                title={label}
-                                                count={count}
-                                                isActive={currentView === key}
-                                                onClick={() => { setCurrentView(key); setSelectedTasks(new Set()); }}
-                                                isUrgent={urgentTasksByView.has(key)}
-                                            />
-                                        );
-                                    })
-                                ) : (
-                                    <div className="px-4 py-1.5 text-sm text-slate-500">
-                                        您暂无任何视图权限，请联系管理员。
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex items-center gap-2 ml-auto">
-                                <div className="w-64"><ComboBox options={departmentFilterOptions} value={activeFilters.department} onChange={(val) => setActiveFilters(prev => ({ ...prev, department: val }))} placeholder="所有部门" /></div>                                <div className="relative"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="搜索..." className="pl-10 pr-4 py-2 w-64 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-700/80 dark:border-slate-600 dark:text-slate-200" /></div>
-                                <button onClick={handleResetFilters} className="p-2 text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700 rounded-full" title="清空筛选">
-                                    <X size={20} />
-                                </button>
-                            </div>
-                            {selectedTasks.size > 0 && currentView !== 'deleted' && (<BulkActionBar selectedCount={selectedTasks.size} onBulkAction={handleBulkAction} currentView={currentView} />)}
-                            {currentView === 'deleted' && deletedTasks.length > 0 && (<button onClick={() => handleTaskAction('clearBin')} className="flex items-center gap-2 text-sm text-red-500 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-semibold"><Trash2 size={16} />清空回收站</button>)}
-                        </div>
+                        <div className="flex-shrink-0 p-4 bg-slate-100/70 dark:bg-slate-800 rounded-t-xl border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    {/* --- 【修改点】让标签组在移动端占据全部宽度 --- */}
+    <div className="flex items-center gap-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-lg p-1 flex-wrap w-full md:w-auto">
+        {visibleViews.length > 0 ? (
+            visibleViews.map(view => {
+                if (view.type === 'divider') {
+                    return <div key={Math.random()} className="h-6 w-px bg-slate-200 dark:bg-slate-600"></div>;
+                }
+                const { key, label } = view;
+                const count = viewCounts[key] || 0;
+                return (
+                    <TabButton
+                        key={key}
+                        viewKey={key}
+                        title={label}
+                        count={count}
+                        isActive={currentView === key}
+                        onClick={() => { setCurrentView(key); setSelectedTasks(new Set()); }}
+                        isUrgent={urgentTasksByView.has(key)}
+                    />
+                );
+            })
+        ) : (
+            <div className="px-4 py-1.5 text-sm text-slate-500">
+                您暂无任何视图权限，请联系管理员。
+            </div>
+        )}
+    </div>
+    {/* --- 【修改点】让搜索工具在移动端占据全部宽度，并移除 ml-auto --- */}
+    <div className="flex items-center gap-2 w-full md:w-auto md:ml-auto">
+        <div className="w-full md:w-64"><ComboBox options={departmentFilterOptions} value={activeFilters.department} onChange={(val) => setActiveFilters(prev => ({ ...prev, department: val }))} placeholder="所有部门" /></div>                                
+        <div className="relative w-full md:w-auto">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="搜索..." className="pl-10 pr-4 py-2 w-full md:w-64 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-700/80 dark:border-slate-600 dark:text-slate-200" />
+        </div>
+        <button onClick={handleResetFilters} className="p-2 text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700 rounded-full" title="清空筛选">
+            <X size={20} />
+        </button>
+    </div>
+    {selectedTasks.size > 0 && currentView !== 'deleted' && (<BulkActionBar selectedCount={selectedTasks.size} onBulkAction={handleBulkAction} currentView={currentView} />)}
+    {currentView === 'deleted' && deletedTasks.length > 0 && (<button onClick={() => handleTaskAction('clearBin')} className="flex items-center gap-2 text-sm text-red-500 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-semibold"><Trash2 size={16} />清空回收站</button>)}
+</div>
 
-                        {/* --- 2. 核心修改：创建一个新的父容器 --- */}
                         <div className="flex-grow relative overflow-hidden">
-
-                            {/* --- 2.1 任务列表现在被包裹在一个可以独立滚动的 div 中 --- */}
-                            <div className="absolute inset-0 overflow-y-auto">
+                <div className="absolute inset-0 overflow-y-auto"> {/* 【修改点】为移动端卡片添加内外边距 */}
                                 <ListHeader
                                     currentView={currentView}
                                     onSelectAll={handleSelectAll}
@@ -8054,7 +8343,9 @@
                                     availableRoles={availableRoles}
                                 />
                                 {isLoading ? (<div className="text-center py-16 text-slate-500 dark:text-slate-400">加载中...</div>) : filteredAndSortedTasks.length === 0 ? (<div className="text-center py-16 text-slate-500 dark:text-slate-400">此视图下没有任务。</div>) : (
-                                    filteredAndSortedTasks.map((task, index) => {
+                                    <div className="task-grid-container p-4 md:p-0">
+                                        {
+                                filteredAndSortedTasks.map((task, index) => {
                                         const rowProps = { key: task.id, task: task, index: index, onSelect: handleToggleSelectTask, isSelected: selectedTasks.has(task.id), onActionConfirm: handleTaskAction, currentView: currentView, currentUserProfile: currentUserProfile, columnDefinitions: COLUMN_DEFINITIONS, columnWidthMap: COLUMN_WIDTH_MAP, viewColumnMap: VIEW_COLUMN_MAP, userMap: userMap, statusLabelMap: statusLabelMap };
                                         if (currentView === 'deleted') { return <DeletedTaskRow {...rowProps} onPermanentDelete={() => handleTaskAction('permanentDelete', task)} onOpenFlowModal={() => setFlowTask(task)} />; }
                                         const userRoles = currentUserProfile?.permissions?.roles ?? [];
@@ -8063,7 +8354,7 @@
                                         if (isAdmin) { availableActions = WORKFLOW_CONFIG[task.status]?.actions || []; }
                                         else { availableActions = (WORKFLOW_CONFIG[task.status]?.actions || []).filter(action => actionPermissions.some(p => { const hasRolePermission = userRoles.map(pm => pm.role).includes(p.role_key); return p.is_enabled && p.view_key === task.status && p.action_key === action && hasRolePermission; })); }
                                         return <TaskRow {...rowProps} availableActions={availableActions} availableRoles={availableRoles} onOpenFlowModal={() => setFlowTask(task)} />;;
-                                    })
+                                    })}</div>
                                 )}
                             </div>
 
@@ -8093,8 +8384,3 @@
 </body>
 
 </html>
-
-
-
-
-
