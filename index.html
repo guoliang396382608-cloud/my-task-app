@@ -5738,7 +5738,6 @@
                 }
             };
             
-            // ... (此组件的其余 JSX 代码保持不变)
             return (
                 <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-4">
                     <div className="w-full max-w-md">
@@ -5827,7 +5826,7 @@
                     .eq('id', user.id)
                     .single();
                 
-                if (error && error.code !== 'PGRST116') {
+                if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
                     console.error("获取profile失败:", error);
                     await supabase.auth.signOut();
                     setAuthError("无法验证您的账户信息，请稍后重试。");
@@ -8217,6 +8216,7 @@
 </body>
 
 </html>
+
 
 
 
