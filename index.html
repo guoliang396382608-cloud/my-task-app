@@ -5750,10 +5750,12 @@
                 );
             }
 
-            if (!session) {
-                return <Login authError={authError} />;
-            } else {
+            // 只有当 session 存在且用户角色不是 'pending' 时，才渲染 App
+            if (session && session.user.user_metadata?.role !== 'pending') {
                 return <App session={session} />;
+            } else {
+                // 其他所有情况（未登录，或用户角色为 'pending'）都渲染 Login 组件
+                return <Login authError={authError} />;
             }
         };
 
@@ -8091,5 +8093,6 @@
 </body>
 
 </html>
+
 
 
