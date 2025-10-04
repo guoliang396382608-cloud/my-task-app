@@ -416,7 +416,14 @@
 
         // --- 全局辅助函数 ---
         const toCamelCase = (str) => str.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
-
+        const formatDateToYYYYMMDD = (date) => {
+            if (!date || !(date instanceof Date) || isNaN(date)) return null;
+            // 使用 getFullYear, getMonth, getDate 来获取本地日期，不受时区影响
+            const year = date.getFullYear();
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
         const fromSnakeCase = (task) => {
             if (!task) return null;
             return {
@@ -2416,7 +2423,7 @@
                         <div className="flex border-b border-gray-200 dark:border-slate-700 px-2 flex-shrink-0">
                             <TabButton title="当前通知" count={unreadCount} isActive={view === 'active'} onClick={() => handleViewChange('active')} />
                             <TabButton title="已读消息" count={readNotifications.length} isActive={view === 'read'} onClick={() => handleViewChange('read')} />
-                            <TabButton title="已暂缓" count={snoozedNotifications.length} isActive={view === 'snoozed'} onClick={() => handleViewChange('snoozed')} />
+                            <TabButton title="暂缓通知" count={snoozedNotifications.length} isActive={view === 'snoozed'} onClick={() => handleViewChange('snoozed')} />
                         </div>
                         <div className="p-4 flex-grow overflow-y-auto space-y-4 min-h-0">
                             {view === 'active' && (activeNotifications.length > 0 ? (notificationTypes.map(type => {
@@ -2686,10 +2693,6 @@
             };
 
             const handlePermissionToggle = (key, permType, context, newChoice, subType = null) => {
-                // *** BUG FIX 1: 使用正确的参数名 'newChoice' ***
-                console.log("--- 用户点击切换权限 ---");
-                console.log(`操作对象: ${key}, 类型: ${subType}, 选择: ${newChoice}`);
-
                 const newOverrides = JSON.parse(JSON.stringify(overrides));
                 let overrideCategory, isInheritedAllowed, keyForOverride = key;
 
@@ -2878,12 +2881,11 @@
                 </div>
             );
         };
-        const TeamManagementModal = ({ isOpen, onClose, onProfilesChange, showNotification, setConfirmationState, confirmationState, closeConfirmationModal, handleConfirm, profiles, viewConfig, availableRoles, columnDefinitions, setProfiles, viewColumnMap, userMap, managementData, rolePermissions, actionPermissions, ACTION_DEFINITIONS, onSaveManagementData }) => {
+        const TeamManagementModal = ({ isOpen, onClose, onProfilesChange, showNotification, setConfirmationState, confirmationState, closeConfirmationModal, handleConfirm, profiles, viewConfig, availableRoles, columnDefinitions, setProfiles, viewColumnMap, userMap, managementData, rolePermissions, actionPermissions, ACTION_DEFINITIONS, onSaveManagementData, setIsCreateUserModalOpen }) => {
             const [users, setUsers] = useState([]);
             const [loading, setLoading] = useState(true);
             const [error, setError] = useState('');
             const [searchTerm, setSearchTerm] = useState('');
-            const [inviteEmail, setInviteEmail] = useState('');
             const [selectedUsers, setSelectedUsers] = useState(new Set());
             const [currentPage, setCurrentPage] = useState(1);
             const [usersPerPage] = useState(5); // 每页显示5个用户，您可以根据需要调整
@@ -3572,12 +3574,10 @@
                     // 第1步: 获取所有用户的登录信息
                     const { data: authUsers, error: authError } = await supabase.functions.invoke('get-users');
                     if (authError) throw authError;
-                    console.log("1. 从 Edge Function 获取的 Auth Users:", authUsers); // <-- 侦探代码
 
                     // 第2步: 获取所有用户的档案信息 (受 RLS 策略影响)
                     const { data: profilesData, error: profilesError } = await supabase.from('profiles').select('*');
                     if (profilesError) throw profilesError;
-                    console.log("2. 从 profiles 表获取的数据 (受RLS影响):", profilesData); // <-- 侦探代码
 
                     // 第3步: 合并信息
                     const enrichedUsers = authUsers.map(authUser => {
@@ -3593,7 +3593,6 @@
                     const { data: { session } } = await supabase.auth.getSession();
                     const currentUserId = session.user.id;
                     const finalUserData = enrichedUsers.filter(user => user.id !== currentUserId);
-                    console.log("3. 最终处理后准备显示的用户:", finalUserData); // <-- 侦探代码
 
                     setUsers(finalUserData);
                 } catch (e) {
@@ -3669,12 +3668,11 @@
             // --- 【优化版】handleApproveUser ---
             // --- 【最终版】handleApproveUser ---
             const handleApproveUser = async (userId) => {
-                console.log("点击了【批准】按钮，传递过来的 userId 是：", userId); 
 
-    if (!userId) {
-        showNotification("操作失败：未能获取到用户ID。", 'error');
-        return; 
-    }
+                if (!userId) {
+                    showNotification("操作失败：未能获取到用户ID。", 'error');
+                    return;
+                }
                 try {
                     const { error } = await supabase.functions.invoke('approve-user', { body: { userId } });
                     if (error) throw error;
@@ -3692,12 +3690,11 @@
 
             // --- 【最终版】handleRevokeUser (逻辑原先已正确, 保持统一) ---
             const handleRevokeUser = async (userId) => {
-                console.log("点击了【撤销】按钮，传递过来的 userId 是：", userId);
 
-    if (!userId) {
-        showNotification("操作失败：未能获取到用户ID。", 'error');
-        return; 
-    }
+                if (!userId) {
+                    showNotification("操作失败：未能获取到用户ID。", 'error');
+                    return;
+                }
                 try {
                     const { error } = await supabase.functions.invoke('revoke-user', { body: { userId } });
                     if (error) throw error;
@@ -3902,29 +3899,7 @@
                     setSelectedUsers(new Set());
                 }
             };
-            // 点击“邀请”按钮时调用的函数
-            const handleInviteUser = async () => {
-                if (!inviteEmail) {
-                    showNotification('请输入要邀请的邮箱地址。', 'error');
-                    return;
-                }
-                try {
-                    // 调用我们刚刚创建的 invite-user 云函数
-                    const { data, error } = await supabase.functions.invoke('invite-user', {
-                        body: { email: inviteEmail },
-                    });
-                    if (error) throw error;
 
-                    showNotification(data.message || '邀请成功！');
-                    setInviteEmail(''); // 清空输入框
-                    fetchUsers(); // 重新加载用户列表，以显示新邀请的用户
-
-                } catch (e) {
-                    showNotification('邀请用户失败: ' + e.message, 'error');
-                }
-            };
-            // --- 【新】处理部门转移的函数 ---
-            // --- 【最终版】handleTransferDepartment ---
             const handleTransferDepartment = (user) => {
                 if (!user.department) { showNotification('该用户尚未分配初始部门。', 'error'); return; }
                 const newDepartment = user.department === '技术部门' ? '市场部门' : '技术部门';
@@ -4156,7 +4131,7 @@
 
                         <div className="flex flex-grow min-h-0 flex-col md:flex-row"> {/* 【修改点】主布局在移动端垂直堆叠 */}
                             {/* --- 【修改点】左侧导航区适应移动端 --- */}
-                            <div className="w-full md:w-48 flex-shrink-0 bg-slate-50 dark:bg-slate-800/50 p-2 md:p-4 border-b md:border-b-0 md:border-r dark:border-slate-700">
+                            <div className="w-full md:w-32 flex-shrink-0 bg-slate-50 dark:bg-slate-800/50 p-2 md:p-4 border-b md:border-b-0 md:border-r dark:border-slate-700">
                                 <nav className="flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-x-visible">
                                     <button onClick={() => setActiveView('member_management')} className={`px-3 py-2 text-left rounded-md font-semibold text-sm flex-shrink-0 ${activeView === 'member_management' ? 'bg-emerald-500 text-white' : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`}>成员管理</button>
                                     <button onClick={() => setActiveView('role_management')} className={`px-3 py-2 text-left rounded-md font-semibold text-sm flex-shrink-0 ${activeView === 'role_management' ? 'bg-emerald-500 text-white' : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`}>角色管理</button>
@@ -4170,12 +4145,21 @@
                             <div className="flex-grow flex flex-col min-h-0">
                                 {activeView === 'member_management' && (
                                     <div className="p-4 md:p-6 flex-grow overflow-y-auto flex flex-col gap-4">
-                                        <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border dark:border-slate-700">
-                                            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">邀请新成员</label>
-                                            <div className="flex flex-col sm:flex-row gap-2">
-                                                <input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="输入新成员的邮箱地址" className="flex-grow pl-4 pr-4 py-2 w-full border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-gray-200" />
-                                                <button onClick={handleInviteUser} className="px-5 py-2 font-semibold text-white bg-emerald-500 rounded-md hover:bg-emerald-600 flex-shrink-0">发送邀请</button>
+                                        <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border dark:border-slate-700 flex justify-between items-center">
+                                            <div>
+                                                <h4 className="font-semibold">用户管理</h4>
+                                                <p className="text-xs text-slate-500 mt-1">直接为您的团队创建新成员账号。</p>
                                             </div>
+                                            <button
+                                                onClick={() => {
+                                                    onClose(); // 先关闭团队管理弹窗
+                                                    setTimeout(() => setIsCreateUserModalOpen(true), 200); // 延迟一会再打开新弹窗，体验更好
+                                                }}
+                                                className="px-4 py-2 font-semibold text-white bg-emerald-500 rounded-md hover:bg-emerald-600 flex-shrink-0 flex items-center gap-2"
+                                            >
+                                                <Plus size={16} />
+                                                创建新用户
+                                            </button>
                                         </div>
 
                                         {/* 顶部操作区 */}
@@ -4210,24 +4194,33 @@
 
                                         {/* 表格 */}
                                         <div className="overflow-x-auto border rounded-lg dark:border-slate-700">
-                                            <table className="w-full text-sm">
+                                            <table className="w-full text-sm table-fixed">
                                                 <thead className="text-left text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">
                                                     <tr>
                                                         <th className="px-4 py-3 w-10"><input type="checkbox" ref={selectAllCheckboxRef} onChange={handleSelectAll} /></th>
-                                                        <th className="px-4 py-3">用户名</th>
-                                                        <th className="px-4 py-3">邮箱地址</th>
-                                                        <th className="px-4 py-3">角色状态</th>
-                                                        <th className="px-4 py-3">创建时间</th>
-                                                        <th className="px-4 py-3">最后登录</th>
-                                                        <th className="px-4 py-3 text-center">操作</th>
+                                                        <th className="px-4 py-3 w-[10%]">用户名</th>
+                                                        <th className="px-4 py-3 w-[26%]">邮箱地址</th>
+                                                        <th className="px-4 py-3 w-[15%]">角色状态</th>
+                                                        <th className="px-4 py-3 w-[12%]">创建时间</th>
+                                                        <th className="px-4 py-3 w-[12%]">最后登录</th>
+                                                        <th className="px-4 py-3 text-center w-[25%]">操作</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                                                     {currentUsers.map(user => (
                                                         <tr key={user.id}>
                                                             <td className="px-4 py-4"><input type="checkbox" checked={selectedUsers.has(user.id)} onChange={() => handleSelectUser(user.id)} /></td>
-                                                            <td className="px-4 py-4 font-semibold">{userMap.get(user.id) || user.email}</td>
-                                                            <td className="px-4 py-4">{user.email}</td>
+
+                                                            {/* 【修改点】为用户名添加自动换行 */}
+                                                            <td className="px-4 py-4 font-semibold break-words" title={userMap.get(user.id) || user.email}>
+                                                                {userMap.get(user.id) || user.email}
+                                                            </td>
+
+                                                            {/* 【修改点】为邮箱地址添加自动换行 */}
+                                                            <td className="px-4 py-4 break-words" title={user.email}>
+                                                                {user.email}
+                                                            </td>
+
                                                             <td className="px-4 py-4"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.role === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{roleMap[user.role] || user.role}</span></td>
                                                             <td className="px-4 py-4">{new Date(user.created_at).toLocaleString()}</td>
                                                             <td className="px-4 py-4">{user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString() : '从未'}</td>
@@ -4895,6 +4888,110 @@
                     </div>
                 </div>
             )
+        };
+        // ================== 【修正版】直接创建用户弹窗 ==================
+        const CreateUserModal = ({ isOpen, onClose, onSave, availableRoles, showNotification }) => {
+            const [email, setEmail] = useState('');
+            const [displayName, setDisplayName] = useState('');
+            const [department, setDepartment] = useState('技术部门');
+            const [selectedRoles, setSelectedRoles] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const emailSuffixes = ['@qq.com', '@163.com', '@outlook.com', '@gmail.com', '@sina.com', '@189.cn'];
+            const showEmailSuggestions = useMemo(() => email.length > 0 && !email.includes('@'), [email]);
+            const roleOptions = useMemo(() =>
+                (availableRoles || []).map(r => ({ label: r.label, value: r.key }))
+                , [availableRoles]);
+
+            useEffect(() => {
+                if (!isOpen) {
+                    setEmail('');
+                    setDisplayName('');
+                    setDepartment('技术部门');
+                    setSelectedRoles([]);
+                    setLoading(false);
+                }
+            }, [isOpen]);
+
+            if (!isOpen) return null;
+
+            const handleRoleChange = (roleKey) => {
+                setSelectedRoles(prev => {
+                    const newRoles = [...prev];
+                    const index = newRoles.findIndex(r => r.role === roleKey);
+                    if (index > -1) { newRoles.splice(index, 1); }
+                    else { newRoles.push({ role: roleKey }); }
+                    return newRoles;
+                });
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                if (!email || !displayName || selectedRoles.length === 0) {
+                    showNotification('邮箱、姓名和角色均为必填项。', 'error');
+                    return;
+                }
+                setLoading(true);
+                await onSave({ email, displayName, department, roles: selectedRoles });
+                setLoading(false);
+            };
+
+            // ... return (...) JSX 部分保持不变
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-70 z-[60] flex justify-center items-center p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-lg">
+                        <form onSubmit={handleSubmit}>
+                            <header className="p-4 border-b dark:border-slate-700">
+                                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">直接创建新用户</h2>
+                                <p className="text-sm text-gray-500 mt-1">新用户的初始密码将固定为 "hy123456."</p>
+                            </header>
+                            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+                                <div className="relative">
+                                    <label className="block text-sm font-medium">邮箱地址 (登录账号)</label>
+                                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full mt-1 bg-gray-50 border rounded-md px-3 py-2 dark:bg-slate-700 dark:border-slate-600" required />
+                                    {showEmailSuggestions && (
+                                        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-600 border border-gray-300 dark:border-slate-500 rounded-md shadow-lg">
+                                            <ul className="py-1">{emailSuffixes.map(suffix => (<li key={suffix}><button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => setEmail(email + suffix)} className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-500">{email + suffix}</button></li>))}</ul>
+                                        </div>
+                                    )}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium">姓名 (显示名称)</label>
+                                    <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} className="w-full mt-1 bg-gray-50 border rounded-md px-3 py-2 dark:bg-slate-700 dark:border-slate-600" required />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium">所属部门</label>
+                                    <div className="flex items-center space-x-6 mt-2">
+                                        <label className="flex items-center"><input type="radio" name="department" value="技术部门" checked={department === '技术部门'} onChange={e => setDepartment(e.target.value)} className="form-radio" /><span>技术部门</span></label>
+                                        <label className="flex items-center"><input type="radio" name="department" value="市场部门" checked={department === '市场部门'} onChange={e => setDepartment(e.target.value)} className="form-radio" /><span>市场部门</span></label>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium">分配角色 (至少选一)</label>
+                                    <div className="p-3 mt-1 border rounded-md max-h-40 overflow-y-auto grid grid-cols-3 gap-2 dark:border-slate-600">
+                                        {roleOptions.map(option => (
+                                            <label key={option.value} className="flex items-center space-x-2 p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedRoles.some(r => r.role === option.value)}
+                                                    onChange={() => handleRoleChange(option.value)}
+                                                    className="form-checkbox"
+                                                />
+                                                <span className="text-xs">{option.label}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                            <footer className="p-4 flex justify-end gap-4 bg-gray-100 dark:bg-slate-800 rounded-b-xl">
+                                <button type="button" onClick={onClose} className="px-4 py-2 rounded-md font-semibold">取消</button>
+                                <button type="submit" disabled={loading} className="px-6 py-2 rounded-md text-white bg-emerald-500 hover:bg-emerald-600 font-semibold disabled:bg-emerald-300">
+                                    {loading ? '创建中...' : '确认创建'}
+                                </button>
+                            </footer>
+                        </form>
+                    </div>
+                </div>
+            );
         };
         // ================== 在此处粘贴以下新组件的完整代码 ==================
         const DeptHeadAssignModal = ({ isOpen, onClose, onSave, managementData, currentAssignments, userEmail }) => {
@@ -5727,50 +5824,63 @@
                 </div>
             );
         };
-        const WorkbenchModal = ({ isOpen, onClose, onDateSelect, session, workSummaries, onSummariesChange, userMap }) => {
-    const [activeFeature, setActiveFeature] = useState('work_summary');
-    const [summaryToExport, setSummaryToExport] = useState(null);
+        const WorkbenchModal = ({ isOpen, onClose, onDateSelect, session, workSummaries, onSummariesChange, userMap, setViewingSummary }) => {
+            const [activeFeature, setActiveFeature] = useState('work_summary');
 
-    useEffect(() => {
-        if (isOpen && session) {
-            const fetchSummaries = async () => {
-                const { data, error } = await supabase.from('work_summaries').select('*'); // 读取所有总结
-                if (error) { console.error('获取工作总结失败:', error); } 
-                else { onSummariesChange(data || []); }
-            };
-            fetchSummaries();
-        }
-    }, [isOpen, session]);
+            useEffect(() => {
+                if (isOpen && session) {
+                    const fetchSummaries = async () => {
+                        const { data, error } = await supabase.from('work_summaries').select('*'); // 读取所有总结
+                        if (error) { console.error('获取工作总结失败:', error); }
+                        else { onSummariesChange(data || []); }
+                    };
+                    fetchSummaries();
+                }
+            }, [isOpen, session]);
 
-    if (!isOpen) return null;
-    const features = [ { key: 'work_summary', label: '工作总结' } ];
+            if (!isOpen) return null;
+            const features = [{ key: 'work_summary', label: '工作总结' }];
 
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col">
-                <header className="flex justify-between items-center p-4 border-b dark:border-slate-700 flex-shrink-0">
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">我的工作台</h2>
-                    <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700"><X /></button>
-                </header>
-                <main className="flex-grow flex min-h-0">
-                    <nav className="w-48 flex-shrink-0 bg-slate-50 dark:bg-slate-800/50 p-4 border-r dark:border-slate-700">
-                       <ul className="space-y-2">{features.map(f => <li key={f.key}><button onClick={() => setActiveFeature(f.key)} className={`w-full text-left px-3 py-2 rounded-md font-semibold text-sm ${activeFeature === f.key ? 'bg-emerald-500 text-white' : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`}>{f.label}</button></li>)}</ul>
-                    </nav>
-                    <div className="flex-grow p-6 overflow-y-auto">
-                        {activeFeature === 'work_summary' && (
-                            <WorkSummaryCalendar 
-                                onDateSelect={onDateSelect} 
-                                summaries={workSummaries}
-                                onExportClick={(summary) => setSummaryToExport(summary)}
-                            />
-                        )}
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col">
+                        <header className="flex justify-between items-center p-4 border-b dark:border-slate-700 flex-shrink-0">
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">我的工作台</h2>
+                            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700"><X /></button>
+                        </header>
+                        <main className="flex-grow flex flex-col md:flex-row min-h-0">
+                            <nav className="w-32 flex-shrink-0 bg-slate-50 dark:bg-slate-800/50 p-4 border-r dark:border-slate-700">
+    <ul className="space-y-2">
+        {features.map(f => (
+            <li key={f.key}>
+                <button
+                    onClick={() => setActiveFeature(f.key)}
+                    className={`w-full text-left px-3 py-2 rounded-md font-semibold text-sm ${
+                        activeFeature === f.key
+                            ? 'bg-emerald-500 text-white' // <--- 确保这一行是完整的
+                            : 'hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                >
+                    {f.label}
+                </button>
+            </li>
+        ))}
+    </ul>
+</nav>
+                            <div className="flex-grow p-6 overflow-y-auto">
+                                {activeFeature === 'work_summary' && (
+                                    <WorkSummaryCalendar
+                                        onDateSelect={onDateSelect}
+                                        summaries={workSummaries}
+                                        onViewSummary={(summary) => setViewingSummary(summary)}
+                                    />
+                                )}
+                            </div>
+                        </main>
                     </div>
-                </main>
-                <SummaryImageExport summary={summaryToExport} onDone={() => setSummaryToExport(null)} userMap={userMap} />
-            </div>
-        </div>
-    );
-};
+                </div>
+            );
+        };
 
         const SummarySection = ({ title, value, onChange, placeholder, children, rows = "4" }) => (
             <div className="space-y-2">
@@ -5788,145 +5898,156 @@
             </div>
         );
 
-       const WorkSummaryCalendar = ({ onDateSelect, summaries, onExportClick }) => {
-    const [currentDate, setCurrentDate] = useState(new Date());
-    const [selectedDate, setSelectedDate] = useState(null);
-    const [jumpDate, setJumpDate] = useState('');
+        const WorkSummaryCalendar = ({ onDateSelect, summaries, onExportClick, onViewSummary }) => {
+            const [currentDate, setCurrentDate] = useState(new Date());
+            const [selectedDate, setSelectedDate] = useState(null);
+            const [jumpDate, setJumpDate] = useState('');
 
-    const summarizedDates = useMemo(() => {
-        const dateMap = new Map();
-        (summaries || []).forEach(summary => {
-            const localDate = new Date(`${summary.summary_date}T00:00:00`);
-            dateMap.set(localDate.toDateString(), summary);
-        });
-        return dateMap;
-    }, [summaries]);
+            const summarizedDates = useMemo(() => {
+                const dateMap = new Map();
+                (summaries || []).forEach(summary => {
+                    const parts = summary.summary_date.split('-');
+                    const year = parseInt(parts[0], 10);
+                    const month = parseInt(parts[1], 10) - 1;
+                    const day = parseInt(parts[2], 10);
+                    const localDate = new Date(year, month, day);
+                    dateMap.set(localDate.toDateString(), summary);
+                });
+                return dateMap;
+            }, [summaries]);
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
 
-    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-    const prevMonthEndDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0);
+            const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+            const prevMonthEndDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0);
 
-    const startDayOfWeek = startOfMonth.getDay();
-    const daysInMonth = endOfMonth.getDate();
-    const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+            const startDayOfWeek = startOfMonth.getDay();
+            const daysInMonth = endOfMonth.getDate();
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
 
-    const calendarDays = [];
+            const calendarDays = [];
 
-    // 1. 填充上个月末尾的日子
-    for (let i = startDayOfWeek; i > 0; i--) {
-        const day = prevMonthEndDate.getDate() - i + 1;
-        calendarDays.push(<div key={`prev-${day}`} className="p-2 text-left text-slate-400 dark:text-slate-600 border-t border-l dark:border-slate-700">
-            <span className="w-8 h-8 flex items-center justify-center rounded-full text-sm">{day}</span>
-        </div>);
-    }
+            // 1. 填充上个月末尾的日子
+            for (let i = startDayOfWeek; i > 0; i--) {
+                const day = prevMonthEndDate.getDate() - i + 1;
+                calendarDays.push(<div key={`prev-${day}`} className="p-2 text-left text-slate-400 dark:text-slate-600 border-t border-l dark:border-slate-700">
+                    <span className="w-8 h-8 flex items-center justify-center rounded-full text-sm">{day}</span>
+                </div>);
+            }
 
-    // 2. 填充当月的日期
-    for (let day = 1; day <= daysInMonth; day++) {
-        const dateObj = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-        const dateString = dateObj.toDateString();
-        const summaryForDay = summarizedDates.get(dateString);
-        const hasSummary = !!summaryForDay;
-        const isToday = today.toDateString() === dateString;
-        const isSelected = selectedDate && selectedDate.toDateString() === dateString;
-        const isFuture = dateObj > today;
+            // 2. 填充当月的日期
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateObj = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+                const dateString = dateObj.toDateString();
+                const summaryForDay = summarizedDates.get(dateString);
+                const hasSummary = !!summaryForDay;
+                const isToday = today.toDateString() === dateString;
+                const isSelected = selectedDate && selectedDate.toDateString() === dateString;
+                const isFuture = dateObj > today;
+                const isClickable = !isFuture && !hasSummary;
 
-        calendarDays.push(
-            <div 
-                key={day} 
-                className={`p-2 text-left border-t border-l dark:border-slate-700 group relative 
-                    ${isFuture 
-                        ? 'bg-slate-50 dark:bg-slate-800/50 cursor-not-allowed' 
-                        : 'cursor-pointer hover:bg-emerald-50 dark:hover:bg-emerald-900/50 transition-colors'
-                    }`
-                }
-                onClick={() => {
-                    if (isFuture) return;
-                    setSelectedDate(dateObj);
-                    onDateSelect(dateObj);
-                }}
-            >
-                <span className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-medium
+                calendarDays.push(
+                    <div
+                        key={day}
+                        className={`p-2 text-left border-t border-l dark:border-slate-700 group relative 
+                    ${isClickable
+                                ? 'cursor-pointer hover:bg-emerald-50 dark:hover:bg-emerald-900/50 transition-colors'
+                                : (isFuture ? 'bg-slate-50 dark:bg-slate-800/50 cursor-not-allowed' : '')
+                            }`
+                        }
+                        onClick={() => {
+                            // 只有在可点击时才响应
+                            if (isClickable) {
+                                setSelectedDate(dateObj);
+                                onDateSelect(formatDateToYYYYMMDD(dateObj));
+                            }
+                        }}
+                    >
+                        <span className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-medium
                     ${isSelected ? 'ring-2 ring-emerald-500' : ''}
                     ${isToday ? 'bg-emerald-500 text-white' : (isFuture ? 'text-slate-400 dark:text-slate-600' : 'text-slate-700 dark:text-slate-200')}
-                    ${!isFuture && 'group-hover:text-emerald-600 dark:group-hover:text-emerald-300'}
+                    ${isClickable && 'group-hover:text-emerald-600 dark:group-hover:text-emerald-300'}
                 `}>
-                    {day}
-                </span>
-                {hasSummary && (
-                    <div className="absolute bottom-1 right-1 flex items-center gap-1">
-                        <div title="已填写总结" className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                        <button 
-                            title="生成总结图片"
-                            onClick={(e) => { e.stopPropagation(); onExportClick(summaryForDay); }}
-                            className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700"
-                        >
-                            <ImageIcon size={14}/>
-                        </button>
+                            {day}
+                        </span>
+                        {hasSummary && (
+                            // 【核心修改】这个图标现在是唯一的点击入口
+                            <div className="absolute bottom-1 right-1 flex items-center gap-1">
+                                <button
+                                    title="查看或修改总结"
+                                    onClick={(e) => {
+                                        e.stopPropagation(); // 防止触发父 div 的 onClick
+                                        onViewSummary(summaryForDay); // 调用新函数打开预览弹窗
+                                    }}
+                                    className="p-1 rounded-full text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700"
+                                >
+                                    <ImageIcon size={16} />
+                                </button>
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
-        );
-    }
-
-    // 3. 填充下个月开头的日子
-    const remainingCells = 42 - calendarDays.length;
-    for (let i = 1; i <= remainingCells; i++) {
-         calendarDays.push(<div key={`next-${i}`} className="p-2 text-left text-slate-400 dark:text-slate-600 border-t border-l dark:border-slate-700">
-            <span className="w-8 h-8 flex items-center justify-center rounded-full text-sm">{i}</span>
-        </div>);
-    }
-
-    const handlePrevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
-    const handleNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
-    const handleJumpToDate = () => {
-        if (jumpDate) {
-            const newDate = new Date(jumpDate);
-            newDate.setMinutes(newDate.getMinutes() + newDate.getTimezoneOffset());
-            if (!isNaN(newDate.getTime()) && newDate <= today) {
-                setCurrentDate(newDate);
-            } else {
-                alert('不能选择一个未来的日期。');
+                );
             }
-        }
-    };
 
-    const todayStringForInput = today.toISOString().split('T')[0];
+            // 3. 填充下个月开头的日子
+            const remainingCells = 42 - calendarDays.length;
+            for (let i = 1; i <= remainingCells; i++) {
+                calendarDays.push(<div key={`next-${i}`} className="p-2 text-left text-slate-400 dark:text-slate-600 border-t border-l dark:border-slate-700">
+                    <span className="w-8 h-8 flex items-center justify-center rounded-full text-sm">{i}</span>
+                </div>);
+            }
 
-    return (
-        <div className="h-full flex flex-col">
-            <header className="flex flex-wrap justify-between items-center mb-4 flex-shrink-0 gap-y-2">
-                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">
-                    {`${currentDate.getFullYear()}年 ${currentDate.getMonth() + 1}月`}
-                </h3>
-                <div className="flex items-center gap-2 flex-wrap">
-                    <input 
-                        type="date" 
-                        value={jumpDate} 
-                        onChange={(e) => setJumpDate(e.target.value)}
-                        max={todayStringForInput}
-                        className="px-2 py-1 text-sm border-gray-300 rounded-md focus:ring-emerald-500 focus:border-emerald-500 dark:bg-slate-700 dark:border-slate-600"
-                    />
-                    <button onClick={handleJumpToDate} className="px-3 py-1 text-sm font-semibold rounded-md bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600">跳转</button>
-                    <div className="h-4 w-px bg-slate-300 dark:bg-slate-600 mx-1"></div>
-                    <button onClick={handlePrevMonth} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700">&lt;</button>
-                    <button onClick={() => setCurrentDate(new Date())} className="px-3 py-1 text-sm font-semibold rounded-md hover:bg-slate-200 dark:hover:bg-slate-700">今天</button>
-                    <button onClick={handleNextMonth} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700">&gt;</button>
+            const handlePrevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+            const handleNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+            const handleJumpToDate = () => {
+                if (jumpDate) {
+                    const newDate = new Date(jumpDate);
+                    newDate.setMinutes(newDate.getMinutes() + newDate.getTimezoneOffset());
+                    if (!isNaN(newDate.getTime()) && newDate <= today) {
+                        setCurrentDate(newDate);
+                    } else {
+                        alert('不能选择一个未来的日期。');
+                    }
+                }
+            };
+
+            const todayStringForInput = today.toISOString().split('T')[0];
+
+            return (
+                <div className="h-full flex flex-col">
+                    <header className="flex flex-wrap justify-between items-center mb-4 flex-shrink-0 gap-y-2">
+                        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">
+                            {`${currentDate.getFullYear()}年 ${currentDate.getMonth() + 1}月`}
+                        </h3>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <input
+                                type="date"
+                                value={jumpDate}
+                                onChange={(e) => setJumpDate(e.target.value)}
+                                max={todayStringForInput}
+                                className="px-2 py-1 text-sm border-gray-300 rounded-md focus:ring-emerald-500 focus:border-emerald-500 dark:bg-slate-700 dark:border-slate-600"
+                            />
+                            <button onClick={handleJumpToDate} className="px-3 py-1 text-sm font-semibold rounded-md bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600">跳转</button>
+                            <div className="h-4 w-px bg-slate-300 dark:bg-slate-600 mx-1"></div>
+                            <button onClick={handlePrevMonth} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700">&lt;</button>
+                            <button onClick={() => setCurrentDate(new Date())} className="px-3 py-1 text-sm font-semibold rounded-md hover:bg-slate-200 dark:hover:bg-slate-700">今天</button>
+                            <button onClick={handleNextMonth} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700">&gt;</button>
+                        </div>
+                    </header>
+                    <div className="overflow-x-auto flex-grow">
+<div className="grid grid-cols-7 text-center font-semibold text-sm flex-grow bg-white dark:bg-slate-900 rounded-lg shadow border dark:border-slate-700">                            {weekdays.map(day => (
+                                <div key={day} className="py-2 border-b dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">{day}</div>
+                            ))}
+                            {calendarDays}
+                        </div>
+                    </div>
                 </div>
-            </header>
-            <div className="grid grid-cols-7 text-center font-semibold text-sm flex-grow bg-white dark:bg-slate-900 rounded-lg shadow border dark:border-slate-700">
-                {weekdays.map(day => (
-                    <div key={day} className="py-2 border-b dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">{day}</div>
-                ))}
-                {calendarDays}
-            </div>
-        </div>
-    );
-};
+            );
+        };
 
-        const SummaryEditorModal = ({ isOpen, onClose, onSave, date, tasks, session, summaries }) => {
+        const SummaryEditorModal = ({ isOpen, onClose, onSave, initialData, tasks, session, showNotification, summaries }) => {
             const [tasksReceivedCount, setTasksReceivedCount] = useState('');
             const [tasksResponsibleCount, setTasksResponsibleCount] = useState('');
             const [reportedTasks, setReportedTasks] = useState([]);
@@ -5936,14 +6057,51 @@
             const [tomorrowsPlan, setTomorrowsPlan] = useState('');
 
             useEffect(() => {
-                if (isOpen && tasks && session && date) {
-                    // --- 【修改点】加载逻辑 ---
-                    const dateString = date.toISOString().split('T')[0];
-                    const existingSummary = (summaries || []).find(s => s.summary_date === dateString);
+                if (isOpen && initialData) {
+                    const initializeNewSummary = async () => {
+                        // 1. 计算前一天的日期字符串
+                        const today = typeof initialData === 'string' ? new Date(initialData.split('-')) : new Date(initialData.summary_date.split('-'));
+                        const yesterday = new Date(today);
+                        yesterday.setDate(yesterday.getDate() - 1);
+                        const yesterdayString = formatDateToYYYYMMDD(yesterday);
 
-                    if (existingSummary && existingSummary.content) {
-                        // 如果有已保存的总结，则加载数据
-                        const { content } = existingSummary;
+                        // 2. 尝试在前一天的总结中查找任务
+                        const yesterdaySummary = (summaries || []).find(s => s.summary_date === yesterdayString);
+
+                        let tasksToCarryOver = [];
+                        if (yesterdaySummary && yesterdaySummary.content?.reportedTasks) {
+                            // 如果找到了，就带入昨天的任务，并清空进展
+                            tasksToCarryOver = yesterdaySummary.content.reportedTasks.map(task => ({
+                                ...task,
+                                progress: '' // 清空上一天的进展
+                            }));
+                        } else {
+                            // 如果没找到，就使用原来的逻辑：获取所有未完成的任务
+                            tasksToCarryOver = tasks.filter(task =>
+                                task.projectManager === session.user.id &&
+                                task.status !== 'done' &&
+                                task.status !== 'void'
+                            ).map(task => ({
+                                id: task.id, customTaskId: task.customTaskId,
+                                projectName: task.projectName, taskType: task.taskType,
+                                progress: ''
+                            }));
+                        }
+
+                        setReportedTasks(tasksToCarryOver);
+                        // 清空其他字段
+                        setTasksReceivedCount('');
+                        setTasksResponsibleCount('');
+                        setTodaysWork('');
+                        setProblems('');
+                        setOther('');
+                        setTomorrowsPlan('');
+                    };
+
+                    // 判断是“修改”还是“新建”
+                    if (typeof initialData === 'object' && initialData !== null && initialData.content) {
+                        // “修改”：加载已有内容
+                        const { content } = initialData;
                         setTasksReceivedCount(content.tasksReceivedCount || '');
                         setTasksResponsibleCount(content.tasksResponsibleCount || '');
                         setReportedTasks(content.reportedTasks || []);
@@ -5952,32 +6110,17 @@
                         setOther(content.other || '');
                         setTomorrowsPlan(content.tomorrowsPlan || '');
                     } else {
-                        // 如果是新总结，则自动填充任务列表并清空其他字段
-                        const myUnfinishedTasks = tasks.filter(task =>
-                            task.projectManager === session.user.id &&
-                            task.status !== 'done' &&
-                            task.status !== 'void'
-                        );
-                        setReportedTasks(myUnfinishedTasks.map(task => ({
-                            id: task.id,
-                            customTaskId: task.customTaskId,
-                            projectName: task.projectName,
-                            taskType: task.taskType,
-                        })));
-                        setTasksReceivedCount('');
-                        setTasksResponsibleCount('');
-                        setTodaysWork('');
-                        setProblems('');
-                        setOther('');
-                        setTomorrowsPlan('');
+                        // “新建”：执行带入任务的逻辑
+                        initializeNewSummary();
                     }
                 }
-            }, [isOpen, date, tasks, session, summaries]);
+            }, [isOpen, initialData]);
 
             if (!isOpen) return null;
-
-            const formattedDate = date ? `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日` : '';
-
+            const taskGridClasses = "grid grid-cols-[1fr_2.5fr_0.8fr_2fr_auto] gap-2 items-center";
+            // 根据 initialData 的类型来获取日期字符串
+            const date = typeof initialData === 'object' ? initialData.summary_date : initialData;
+            const formattedDate = date ? `${date.split('-')[0]}年${parseInt(date.split('-')[1], 10)}月${parseInt(date.split('-')[2], 10)}日` : '';
             const handleTaskChange = (index, field, value) => {
                 const newTasks = [...reportedTasks];
                 newTasks[index][field] = value;
@@ -5994,14 +6137,14 @@
                     id: `new-${Date.now()}`,
                     customTaskId: '',
                     projectName: '',
-                    taskType: ''
+                    taskType: '',
+                    progress: '' // 【新增】
                 }]);
             };
-
             const handleSave = () => {
                 const summaryData = {
                     user_id: session.user.id,
-                    summary_date: date.toISOString().split('T')[0], // YYYY-MM-DD 格式
+                    summary_date: date,
                     content: { // 将所有内容打包成一个 JSON 对象
                         tasksReceivedCount,
                         tasksResponsibleCount,
@@ -6046,12 +6189,23 @@
                                     <span>份。</span>
                                 </div>
 
-                                <div className="space-y-2 pt-2">
+                                <div className="space-y-2 pt-2 overflow-x-auto">
+    {/* 给表头和每一行都添加一个最小宽度 */}
+    <div className={`${taskGridClasses} text-xs ...`} style={{ minWidth: '600px' }}>
+                                        <span>任务编号</span>
+                                        <span>项目名称</span>
+                                        <span>任务类型</span>
+                                        <span>任务进展</span>
+                                        <span></span>
+                                    </div>
+
+                                    {/* 【第三步：修改数据行，也使用同一个新变量】 */}
                                     {reportedTasks.map((task, index) => (
-                                        <div key={task.id} className="grid grid-cols-[1fr_2fr_1fr_auto] gap-2 items-center">
-                                            <input type="text" value={task.customTaskId} onChange={(e) => handleTaskChange(index, 'customTaskId', e.target.value)} placeholder="任务编号" className="px-2 py-1 text-sm border-gray-300 rounded-md dark:bg-slate-700 dark:border-slate-600" />
-                                            <input type="text" value={task.projectName} onChange={(e) => handleTaskChange(index, 'projectName', e.target.value)} placeholder="项目名称" className="px-2 py-1 text-sm border-gray-300 rounded-md dark:bg-slate-700 dark:border-slate-600" />
-                                            <input type="text" value={task.taskType} onChange={(e) => handleTaskChange(index, 'taskType', e.target.value)} placeholder="任务类型" className="px-2 py-1 text-sm border-gray-300 rounded-md dark:bg-slate-700 dark:border-slate-600" />
+                                        <div key={task.id} className={taskGridClasses} style={{ minWidth: '600px' }}>
+                                            <input type="text" value={task.customTaskId} onChange={(e) => handleTaskChange(index, 'customTaskId', e.target.value)} placeholder="任务编号" className="w-full min-w-0 px-2 py-1 text-sm border-gray-300 rounded-md dark:bg-slate-700 dark:border-slate-600" />
+                                            <input type="text" value={task.projectName} onChange={(e) => handleTaskChange(index, 'projectName', e.target.value)} placeholder="项目名称" className="w-full min-w-0 px-2 py-1 text-sm border-gray-300 rounded-md dark:bg-slate-700 dark:border-slate-600" />
+                                            <input type="text" value={task.taskType} onChange={(e) => handleTaskChange(index, 'taskType', e.target.value)} placeholder="任务类型" className="w-full min-w-0 px-2 py-1 text-sm border-gray-300 rounded-md dark:bg-slate-700 dark:border-slate-600" />
+                                            <input type="text" value={task.progress || ''} onChange={(e) => handleTaskChange(index, 'progress', e.target.value)} placeholder="今日进展..." className="w-full min-w-0 px-2 py-1 text-sm border-gray-300 rounded-md dark:bg-slate-700 dark:border-slate-600" />
                                             <button onClick={() => handleRemoveTask(index)} className="px-2 py-1 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-md font-bold text-lg">-</button>
                                         </div>
                                     ))}
@@ -6078,69 +6232,158 @@
                 </div>
             );
         };
+        // ================== 【全新】总结预览弹窗 ==================
+        const SummaryViewModal = ({ summary, onClose, setSummaryToExport, onModify }) => {
+            if (!summary) return null;
+
+            const { content = {}, summary_date } = summary;
+
+            const SummaryDetailItem = ({ title, children }) => (
+                <div>
+                    <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">{title}</h3>
+                    <div className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap bg-slate-50 dark:bg-slate-800/50 p-3 rounded-md min-h-[40px]">
+                        {children || '未填写'}
+                    </div>
+                </div>
+            );
+
+            const formattedDate = summary_date ? `${summary_date.split('-')[0]}年${parseInt(summary_date.split('-')[1], 10)}月${parseInt(summary_date.split('-')[2], 10)}日` : '';
+            const taskGridClasses = "grid grid-cols-[1fr_2.5fr_0.8fr_2fr_auto] gap-2 items-center";
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-70 z-[60] flex justify-center items-center p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl h-[90vh] flex flex-col">
+                        <header className="flex justify-between items-center p-4 border-b dark:border-slate-700 flex-shrink-0">
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">工作总结预览</h2>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">{formattedDate}</p>
+                            </div>
+                            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700"><X /></button>
+                        </header>
+                        <main className="flex-grow p-6 space-y-4 overflow-y-auto">
+                            <div>
+                                <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">1. 工作汇报</h3>
+                                <div className="text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-md">
+                                    <p className="mb-2">{`今日接收任务 ${content.tasksReceivedCount || 0} 份，共负责任务 ${content.tasksResponsibleCount || 0} 份。`}</p>
+                                    {/* 【核心修正】添加任务表格 */}
+                                    {(content.reportedTasks || []).length > 0 && (
+                                        <table className="w-full text-left border-collapse mt-2 text-xs">
+                                            <thead className="bg-slate-200 dark:bg-slate-700">
+                                                <tr>
+                                                    <th className="border p-1 dark:border-slate-600 w-[25%]">任务编号</th>
+                                                    <th className="border p-1 dark:border-slate-600 w-[40%]">项目名称</th>
+                                                    <th className="border p-1 dark:border-slate-600 w-[15%]">任务类型</th>
+                                                    <th className="border p-1 dark:border-slate-600 w-[20%]">任务进展</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {(content.reportedTasks || []).map((task, index) => (
+                                                    <tr key={task.id || index}>
+                                                        <td className="border p-1 dark:border-slate-600">{task.customTaskId}</td>
+                                                        <td className="border p-1 dark:border-slate-600">{task.projectName}</td>
+                                                        <td className="border p-1 dark:border-slate-600">{task.taskType}</td>
+                                                        <td className="border p-1 dark:border-slate-600">{task.progress}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </div>
+                            </div>
+                            <SummaryDetailItem title="2. 今日工作">{content.todaysWork}</SummaryDetailItem>
+                            <SummaryDetailItem title="3. 遇到的问题及计划解决办法">{content.problems}</SummaryDetailItem>
+                            <SummaryDetailItem title="4. 其他">{content.other}</SummaryDetailItem>
+                            <SummaryDetailItem title="5. 明日计划">{content.tomorrowsPlan}</SummaryDetailItem>
+                        </main>
+                        <footer className="p-4 flex justify-end gap-4 bg-gray-100 dark:bg-slate-800 rounded-b-xl border-t dark:border-slate-700 flex-shrink-0">
+                            <button onClick={() => setSummaryToExport(summary)} className="px-4 py-2 rounded-md font-semibold flex items-center gap-2 text-white bg-blue-500 hover:bg-blue-600">
+                                <ImageIcon size={16} /> 生成图片
+                            </button>
+                            <button onClick={onModify} className="px-6 py-2 rounded-md text-white bg-emerald-500 hover:bg-emerald-600 font-semibold flex items-center gap-2">
+                                <Edit size={16} /> 修改总结
+                            </button>
+                        </footer>
+                    </div>
+                </div>
+            );
+        };
         const SummaryImageExport = ({ summary, onDone, userMap }) => {
-    const exportRef = useRef(null);
+            const exportRef = useRef(null);
 
-    useEffect(() => {
-        if (summary && exportRef.current) {
-            setTimeout(() => {
-                window.html2canvas(exportRef.current, { scale: 2, useCORS: true }).then(canvas => {
-                    const link = document.createElement('a');
-                    link.download = `工作总结-${summary.summary_date}.png`;
-                    link.href = canvas.toDataURL('image/png');
-                    link.click();
-                    onDone();
-                }).catch(err => {
-                    console.error("图片生成失败:", err);
-                    alert("图片生成失败，详情请查看控制台。");
-                    onDone();
-                });
-            }, 100);
-        }
-    }, [summary, onDone]);
+            useEffect(() => {
+                if (summary && exportRef.current) {
+                    setTimeout(() => {
+                        window.html2canvas(exportRef.current, { scale: 2, useCORS: true }).then(canvas => {
+                            const link = document.createElement('a');
+                            link.download = `工作总结-${summary.summary_date}.png`;
+                            link.href = canvas.toDataURL('image/png');
+                            link.click();
+                            onDone();
+                        }).catch(err => {
+                            console.error("图片生成失败:", err);
+                            alert("图片生成失败，详情请查看控制台。");
+                            onDone();
+                        });
+                    }, 100);
+                }
+            }, [summary, onDone]);
 
-    if (!summary) return null;
+            if (!summary) return null;
 
-    const { content = {}, summary_date, user_id } = summary; // 安全地解构 content
-    const userName = userMap.get(user_id) || '未知用户';
+            const { content = {}, summary_date, user_id } = summary;
+            const userName = userMap.get(user_id) || '未知用户';
 
-    const ReportSection = ({ title, children }) => (
-        <div className="mb-4">
-            <h3 className="text-lg font-bold border-b-2 border-emerald-500 pb-1 mb-2 text-emerald-700">{title}</h3>
-            <div className="text-sm text-gray-800 whitespace-pre-wrap">{children}</div>
-        </div>
-    );
+            const ReportSection = ({ title, children }) => (
+                <div className="mb-4">
+                    <h3 className="text-lg font-bold border-b-2 border-emerald-500 pb-1 mb-2 text-emerald-700">{title}</h3>
+                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{children || '未填写'}</div>
+                </div>
+            );
 
-    return (
-        <div style={{ position: 'absolute', left: '-9999px', top: 0, zIndex: -1 }}>
-            <div ref={exportRef} className="p-8 bg-white" style={{ width: '800px' }}>
-                <header className="text-center mb-8">
-                    <h1 className="text-3xl font-extrabold text-gray-900">工作总结</h1>
-                    <p className="text-lg text-gray-500 mt-2">{`${summary_date} (报告人: ${userName})`}</p>
-                </header>
-                <main>
-                    <ReportSection title="1. 工作汇报">
-                        <p className="mb-2">{`今日接收任务 ${content.tasksReceivedCount || 0} 份，共负责任务 ${content.tasksResponsibleCount || 0} 份。`}</p>
-                        {(content.reportedTasks || []).length > 0 && (
-                            <table className="w-full text-left border-collapse mt-2 text-xs">
-                                <thead><tr className="bg-slate-100"><th className="border p-1">任务编号</th><th className="border p-1">项目名称</th><th className="border p-1">任务类型</th></tr></thead>
-                                <tbody>
-                                    {(content.reportedTasks || []).map((task, index) => (
-                                        <tr key={task.id || index}><td className="border p-1">{task.customTaskId}</td><td className="border p-1">{task.projectName}</td><td className="border p-1">{task.taskType}</td></tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
-                    </ReportSection>
-                    <ReportSection title="2. 今日工作">{content.todaysWork || '无'}</ReportSection>
-                    <ReportSection title="3. 遇到的问题及计划解决办法">{content.problems || '无'}</ReportSection>
-                    <ReportSection title="4. 其他">{content.other || '无'}</ReportSection>
-                    <ReportSection title="5. 明日计划">{content.tomorrowsPlan || '无'}</ReportSection>
-                </main>
-            </div>
-        </div>
-    );
-};
+            return (
+                <div style={{ position: 'absolute', left: '-9999px', top: 0, zIndex: -1 }}>
+                    <div ref={exportRef} className="p-8 bg-white" style={{ width: '800px', fontFamily: '-apple-system, sans-serif' }}>
+                        <header className="text-center mb-8">
+                            <h1 className="text-3xl font-extrabold text-gray-900">工作总结</h1>
+                            <p className="text-lg text-gray-500 mt-2">{`${summary_date} (报告人: ${userName})`}</p>
+                        </header>
+                        <main>
+                            <ReportSection title="1. 工作汇报">
+                                <p className="mb-2">{`今日接收任务 ${content.tasksReceivedCount || 0} 份，共负责任务 ${content.tasksResponsibleCount || 0} 份。`}</p>
+                                {/* 【核心修正】添加任务表格 */}
+                                {(content.reportedTasks || []).length > 0 && (
+                                    <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse mt-2 text-xs" style={{ border: '1px solid #ccc' }}>
+                                        <thead>
+                                            <tr className="bg-slate-100">
+                                                <th style={{ border: '1px solid #ccc', padding: '4px' }}>任务编号</th>
+                                                <th style={{ border: '1px solid #ccc', padding: '4px' }}>项目名称</th>
+                                                <th style={{ border: '1px solid #ccc', padding: '4px' }}>任务类型</th>
+                                                <th style={{ border: '1px solid #ccc', padding: '4px' }}>任务进展</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {(content.reportedTasks || []).map((task, index) => (
+                                                <tr key={task.id || index}>
+                                                    <td style={{ border: '1px solid #ccc', padding: '4px' }}>{task.customTaskId}</td>
+                                                    <td style={{ border: '1px solid #ccc', padding: '4px' }}>{task.projectName}</td>
+                                                    <td style={{ border: '1px solid #ccc', padding: '4px' }}>{task.taskType}</td>
+                                                    <td style={{ border: '1px solid #ccc', padding: '4px' }}>{task.progress}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                    </div>
+                                )}
+                            </ReportSection>
+                            <ReportSection title="2. 今日工作">{content.todaysWork}</ReportSection>
+                            <ReportSection title="3. 遇到的问题及计划解决办法">{content.problems}</ReportSection>
+                            <ReportSection title="4. 其他">{content.other}</ReportSection>
+                            <ReportSection title="5. 明日计划">{content.tomorrowsPlan}</ReportSection>
+                        </main>
+                    </div>
+                </div>
+            );
+        };
         const BulkReturnModal = ({ isOpen, onClose, onConfirm, taskCount }) => {
             const [reason, setReason] = useState('');
 
@@ -6281,18 +6524,18 @@
                             setMessage('注册成功！请检查您的邮箱以完成验证。');
                         }
                     } else {
-    // 1. 先尝试正常登录
-    response = await supabase.auth.signInWithPassword({ email, password });
+                        // 1. 先尝试正常登录
+                        response = await supabase.auth.signInWithPassword({ email, password });
 
-    // 2. 如果登录失败，并且错误是关于邮箱未验证的
-    if (response.error && response.error.message.includes('Email not confirmed')) {
-        // 3. 强制从服务器刷新用户最新的状态
-        await supabase.auth.refreshSession();
-        
-        // 4. 再次尝试登录，这次客户端会带着最新的用户信息
-        response = await supabase.auth.signInWithPassword({ email, password });
-    }
-}
+                        // 2. 如果登录失败，并且错误是关于邮箱未验证的
+                        if (response.error && response.error.message.includes('Email not confirmed')) {
+                            // 3. 强制从服务器刷新用户最新的状态
+                            await supabase.auth.refreshSession();
+
+                            // 4. 再次尝试登录，这次客户端会带着最新的用户信息
+                            response = await supabase.auth.signInWithPassword({ email, password });
+                        }
+                    }
                     if (response.error) {
                         throw response.error;
                     }
@@ -6308,9 +6551,9 @@
             return (
                 <div className="min-h-screen bg-gray-100 dark:bg-slate-900 flex items-center justify-center p-4" style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #34d399 100%)' }}>
                     <div className="w-full max-w-4xl mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow-2xl flex overflow-hidden">
-                        <div className="w-1/2 hidden md:block bg-emerald-500 dark:bg-emerald-600 p-12 text-white flex flex-col justify-center">
+                        <div className="w-3/5 hidden md:block bg-emerald-500 dark:bg-emerald-600 p-12 text-white flex flex-col justify-center">
                             <h1 className="text-4xl font-bold mb-4">咨询任务管理系统</h1>
-                            <p className="text-emerald-100">高效、协作、安全。我们帮助您管理每一个项目细节，确保团队目标顺利达成。</p>
+                            <p className="text-emerald-100">热爱企业，感恩客户，严格要求自己，从我做起，从现在做起，努力工作，持续学习，勇于创新，用我们的智慧和汗水，铸就恒一新的辉煌!</p>
                         </div>
                         <div className="w-full md:w/2 p-8 md:p-12">
                             <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{view === 'sign_in' && '欢迎回来'}{view === 'sign_up' && '创建新账户'}{view === 'forgot_password' && '重置密码'}</h2>
@@ -6442,10 +6685,9 @@
             }
 
             // 只有当 session 存在且用户角色不是 'pending' 时，才渲染 App
-            if (session && session.user.user_metadata?.role !== 'pending') {
+            if (session && session.user.app_metadata?.role !== 'pending') {
                 return <App session={session} />;
             } else {
-                // 其他所有情况（未登录，或用户角色为 'pending'）都渲染 Login 组件
                 return <Login authError={authError} />;
             }
         };
@@ -6488,6 +6730,7 @@
             const appRef = useRef(null);
             const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
             const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+            const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
             const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
             const [userMap, setUserMap] = useState(new Map());
             const [profiles, setProfiles] = useState([]);
@@ -6495,6 +6738,7 @@
             const [availableRoles, setAvailableRoles] = useState([]);
             const [rolePermissions, setRolePermissions] = useState([]);
             const [actionPermissions, setActionPermissions] = useState([]);
+
             // --- 在状态声明区追加 ---
             const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
             const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
@@ -6506,8 +6750,10 @@
             const [contractInfoTask, setContractInfoTask] = useState(null); // <-- 在这里添加新状态
             const [showConfetti, setShowConfetti] = useState(false);
             const [isWorkbenchModalOpen, setIsWorkbenchModalOpen] = useState(false);
-            const [editingSummaryDate, setEditingSummaryDate] = useState(null);
             const [workSummaries, setWorkSummaries] = useState([]);
+            const [editingSummary, setEditingSummary] = useState(null); // 原来的 editingSummaryDate, 现在改名为 editingSummary
+            const [viewingSummary, setViewingSummary] = useState(null); // 新增
+            const [summaryToExport, setSummaryToExport] = useState(null);
             const salesPersonOptions = useMemo(() =>
                 profiles
                     .filter(p => p.department === '市场部门')
@@ -6560,7 +6806,6 @@
 
                     setProfiles(profilesData || []);
                     setUserMap(users);
-                    console.log("用户数据已刷新！");
                 } catch (error) {
                     showNotification("刷新用户数据失败: " + error.message, 'error');
                 }
@@ -6678,7 +6923,6 @@
                     .channel('public:notifications')
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' },
                         (payload) => {
-                            console.log('接收到数据库实时变更:', payload);
                             const { eventType, new: newRecord, old: oldRecord } = payload;
                             const now = new Date();
 
@@ -6716,97 +6960,106 @@
                     supabase.removeChannel(channel);
                 };
             }, []); // 依赖项为空，确保只订阅一次
+            // --- 新增：专门用于控制备份提醒条幅的 useEffect ---
+            useEffect(() => {
+                // 只有在数据加载完毕后才执行检查
+                if (isLoading || !session) return;
+
+                let shouldShow = false;
+                const thirtyDaysInMillis = 30 * 24 * 60 * 60 * 1000;
+
+                if (backupHistory.length === 0) {
+                    // 如果从未备份过，检查账号创建时间是否已超过30天
+                    const accountAge = new Date() - new Date(session.user.created_at);
+                    if (accountAge > thirtyDaysInMillis) {
+                        shouldShow = true;
+                    }
+                } else {
+                    // 如果有备份记录，检查最新一次备份是否在30天前
+                    // backupHistory 已经按时间倒序排列，第一个就是最新的
+                    const lastBackupAge = new Date() - new Date(backupHistory[0].backup_timestamp);
+                    if (lastBackupAge > thirtyDaysInMillis) {
+                        shouldShow = true;
+                    }
+                }
+
+                // 【核心修复】用计算结果来更新状态，控制条幅的显示
+                setShowBackupReminder(shouldShow);
+
+            }, [backupHistory, session, isLoading]); // 依赖项：当这些数据加载或变化时，重新检查
+            // 【请用这个最终、已修复时区问题的版本，完整替换旧的通知生成 useEffect】
             useEffect(() => {
                 if (isLoading || !currentUserProfile || !session) return;
 
                 const reconcileAutoNotifications = async () => {
                     try {
-                        // --- 核心修正：在此处统一声明一个数组 ---
                         const notificationsToUpsert = [];
-                        const now = new Date();
-                        now.setHours(0, 0, 0, 0); // 标准化时间，以便于日期比较
+                        const today = new Date(); // 获取当前本地时间
 
-                        // --- 1. 升级版“备份提醒”逻辑 ---
-                        const { data: existingBackupNotification, error: fetchBackupError } = await supabase
+                        // 【核心修正】: 使用我们已有的、可靠的本地日期格式化函数
+                        const todayString = formatDateToYYYYMMDD(today);
+
+                        // --- 1. 备份提醒逻辑 (保持不变) ---
+                        const { data: existingBackupNotification } = await supabase
                             .from('notifications').select('id').eq('user_id', session.user.id).eq('type', 'backup_reminder')
                             .limit(1).maybeSingle();
-                        if (fetchBackupError) throw fetchBackupError;
-
                         let shouldRemindBackup = false;
                         if (backupHistory.length === 0) {
-                            // 如果从未备份过，从用户注册日开始算
-                            const userCreationDate = new Date(session.user.created_at);
-                            const daysSinceCreation = Math.floor((now - userCreationDate) / (1000 * 60 * 60 * 24));
-                            if (daysSinceCreation > 30) {
-                                shouldRemindBackup = true;
-                            }
+                            if ((new Date() - new Date(session.user.created_at)) / (1000 * 3600 * 24) > 30) shouldRemindBackup = true;
                         } else {
-                            // 如果有备份记录，从上次备份日开始算
-                            const lastBackupDate = new Date(backupHistory[0].backup_timestamp);
-                            const daysSinceLastBackup = Math.floor((now - lastBackupDate) / (1000 * 60 * 60 * 24));
-                            if (daysSinceLastBackup > 30) {
-                                shouldRemindBackup = true;
-                            }
+                            if ((new Date() - new Date(backupHistory[0].backup_timestamp)) / (1000 * 3600 * 24) > 30) shouldRemindBackup = true;
                         }
-
-                        // 只有在需要提醒且当前不存在提醒时，才添加
                         if (shouldRemindBackup && !existingBackupNotification) {
-                            // --- 核心修正：使用统一的数组 ---
                             notificationsToUpsert.push({
-                                user_id: session.user.id,
-                                type: 'backup_reminder',
-                                message: '数据备份提醒：您已超过30天未执行全量备份（或自注册以来），建议及时处理。',
-                                is_read: false,
+                                user_id: session.user.id, type: 'backup_reminder',
+                                message: '数据备份提醒：您已超过30天未执行全量备份，建议及时处理。', is_read: false,
                             });
                         }
 
-                        // --- 2. 修复版“紧急任务提醒”逻辑 ---
+                        // --- 2. 【每日强提醒，已修复时区问题】 ---
                         const activeTasks = tasksVisibleToUser.filter(t => t.status !== 'done' && t.status !== 'void');
 
-                        // --- 替换为下面这段修正后的代码 ---
-                        const urgentTasks = activeTasks.filter(t => {
-                            if (!t.contractualDueDate) return false;
+                        const { data: existingUrgentNotifications, error: fetchUrgentError } = await supabase
+                            .from('notifications')
+                            .select('notification_id, message, snoozed_until, updated_at')
+                            .eq('user_id', session.user.id)
+                            .eq('type', 'urgent_task');
+                        if (fetchUrgentError) throw fetchUrgentError;
 
-                            // 在筛选阶段就对截止日期进行标准化处理
-                            const dueDate = new Date(t.contractualDueDate);
-                            dueDate.setHours(0, 0, 0, 0);
+                        const existingMap = new Map((existingUrgentNotifications || []).map(n => [n.notification_id, n]));
 
-                            // 使用与消息生成器完全相同的 Math.ceil 逻辑来确保一致性
-                            const diffDays = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+                        activeTasks.forEach(task => {
+                            if (!task.contractualDueDate) return;
 
-                            // 返回正确的比较结果
-                            return diffDays <= 7;
+                            const dueDate = new Date(task.contractualDueDate);
+                            const diffDays = Math.ceil((dueDate - today) / (1000 * 3600 * 24));
+
+                            if (diffDays > 7) return;
+
+                            const notificationId = `urgent-${task.id}`;
+                            const existingNotification = existingMap.get(notificationId);
+                            const newMessage = `任务 ${generateTaskSummary(task)} ${formatDuration(diffDays).status} (${formatDuration(diffDays).time})。`;
+
+                            if (existingNotification && existingNotification.snoozed_until && new Date(existingNotification.snoozed_until) > new Date()) {
+                                return;
+                            }
+
+                            // 【核心修正】: 同样使用本地日期格式化函数来获取上次更新的日期
+                            const lastUpdateString = existingNotification?.updated_at ? formatDateToYYYYMMDD(new Date(existingNotification.updated_at)) : null;
+
+                            if (!existingNotification || lastUpdateString !== todayString || existingNotification.message !== newMessage) {
+                                notificationsToUpsert.push({
+                                    user_id: session.user.id,
+                                    notification_id: notificationId,
+                                    type: 'urgent_task',
+                                    message: newMessage,
+                                    is_read: false,
+                                    snoozed_until: null,
+                                });
+                            }
                         });
 
-                        if (urgentTasks.length > 0) {
-                            const { data: existingUrgentNotifications, error: fetchUrgentError } = await supabase
-                                .from('notifications').select('notification_id, message').eq('user_id', session.user.id).eq('type', 'urgent_task');
-                            if (fetchUrgentError) throw fetchUrgentError;
-
-                            const existingMap = new Map((existingUrgentNotifications || []).map(n => [n.notification_id, n.message]));
-
-                            urgentTasks.forEach(task => {
-                                const notificationId = `urgent-${task.id}`;
-                                const dueDate = new Date(task.contractualDueDate);
-                                dueDate.setHours(0, 0, 0, 0);
-                                const diffDays = Math.ceil((dueDate - now) / (1000 * 3600 * 24));
-                                const duration = formatDuration(diffDays);
-                                const newMessage = `任务 ${generateTaskSummary(task)} ${duration.status} (${duration.time})。`;
-                                if (!existingMap.has(notificationId) || existingMap.get(notificationId) !== newMessage) {
-                                    // --- 核心修正：使用统一的数组 ---
-                                    notificationsToUpsert.push({
-                                        user_id: session.user.id,
-                                        notification_id: notificationId,
-                                        type: 'urgent_task',
-                                        message: newMessage,
-                                        is_read: false,
-                                    });
-                                }
-                            });
-                        }
-
                         // --- 3. 统一执行数据库操作 ---
-                        // --- 核心修正：判断统一的数组 ---
                         if (notificationsToUpsert.length > 0) {
                             const { error } = await supabase.from('notifications').upsert(notificationsToUpsert, { onConflict: 'user_id, notification_id' });
                             if (error) throw error;
@@ -7364,7 +7617,6 @@
             useEffect(() => {
                 const channel = supabase.channel('public-db-changes');
                 const handleDbChange = (payload) => {
-                    console.log('数据库发生变更:', payload);
                     const { eventType, table, new: newRecord, old: oldRecord } = payload;
                     if (table === 'tasks') {
                         if (eventType === 'INSERT') {
@@ -7399,7 +7651,38 @@
                         });
                     }
                 };
-                channel.on('postgres_changes', { event: '*', schema: 'public' }, handleDbChange).subscribe();
+                const handleProfileChange = (payload) => {
+                    const { eventType, table, new: newRecord, old: oldRecord } = payload;
+
+                    // 确保是我们关心的 profiles 表
+                    if (table !== 'profiles') return;
+
+                    // 不论是新增、更新还是删除，都更新前端的 profiles 列表
+                    // 这能确保【团队管理】弹窗里的数据总是最新的
+                    if (eventType === 'INSERT') {
+                        setProfiles(current => [...current, newRecord]);
+                    }
+                    if (eventType === 'UPDATE') {
+                        setProfiles(current => current.map(p => p.id === newRecord.id ? newRecord : p));
+                    }
+                    if (eventType === 'DELETE') {
+                        setProfiles(current => current.filter(p => p.id !== oldRecord.id));
+                    }
+
+                    // 【核心修复】检查被修改的用户是不是当前登录的用户
+                    if (newRecord && newRecord.id === session.user.id) {
+                        console.log("当前用户的权限已在别处被更新，正在刷新UI...");
+                        // 如果是，就用最新的数据更新 currentUserProfile 状态
+                        setCurrentUserProfile(newRecord);
+                        showNotification('您的权限已更新！界面已自动刷新。', 'success');
+                    }
+                };
+                channel
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, handleDbChange)
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'deleted_tasks' }, handleDbChange)
+                    // 【新增这一行】
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, handleProfileChange)
+                    .subscribe();
                 return () => { supabase.removeChannel(channel); };
             }, []);
 
@@ -7536,22 +7819,22 @@
                 }
             };
 
-const handleSignOut = async () => {
-    try {
-        const { error } = await supabase.auth.signOut();
-        if (error) {
-            // 如果登出过程中发生错误，就抛出它
-            throw error;
-        }
-        // 登出成功后，onAuthStateChange 监听器会自动处理页面跳转，
-        // 所以这里不需要写任何成功后的代码。
-    } catch (error) {
-        // 如果捕获到错误，就用您已有的通知组件显示出来
-        console.error("登出失败:", error);
-        showNotification("登出失败: " + error.message, 'error');
-    }
-};
-            
+            const handleSignOut = async () => {
+                try {
+                    const { error } = await supabase.auth.signOut();
+                    if (error) {
+                        // 如果登出过程中发生错误，就抛出它
+                        throw error;
+                    }
+                    // 登出成功后，onAuthStateChange 监听器会自动处理页面跳转，
+                    // 所以这里不需要写任何成功后的代码。
+                } catch (error) {
+                    // 如果捕获到错误，就用您已有的通知组件显示出来
+                    console.error("登出失败:", error);
+                    showNotification("登出失败: " + error.message, 'error');
+                }
+            };
+
             const handleConfirmBulkSubmit = async () => {
                 let isAnyTaskCompleted = false; // <-- 新增一个标记
                 const actorName = userMap.get(session.user.id) || session.user.email;
@@ -8017,7 +8300,6 @@ const handleSignOut = async () => {
                     setAvailableRoles(rolesData || []);
                     setRolePermissions(rolePermsData || []);
                     setActionPermissions(actionPermsData || []);
-                    console.log("权限数据已刷新!");
 
                 } catch (error) {
                     showNotification(`刷新权限数据失败: ${error.message}`, 'error');
@@ -8550,6 +8832,24 @@ const handleSignOut = async () => {
                 });
                 return urgentMap;
             }, [tasks]);
+            const handleCreateUserDirectly = async (userData) => {
+                try {
+                    const { error } = await supabase.functions.invoke('create-user-directly', {
+                        body: userData
+                    });
+
+                    if (error) {
+                        throw new Error(error.message);
+                    }
+
+                    showNotification(`用户 ${userData.email} 创建成功！`, 'success');
+                    setIsCreateUserModalOpen(false);
+                    await refreshProfiles();
+
+                } catch (error) {
+                    showNotification(`创建失败: ${error.message}`, 'error');
+                }
+            };
             return (
                 <div ref={appRef} className="h-screen bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-200 p-4 lg:p-6 flex flex-col">
                     {showConfetti && <ConfettiAnimation />} {/* <-- 在这里添加新组件 */}
@@ -8616,7 +8916,8 @@ const handleSignOut = async () => {
                         onClearSelection={() => setSelectedNotifications(new Set())} // <-- 新增这一行
                     />
                     <BackupManagementModal isOpen={isBackupModalOpen} onClose={() => setIsBackupModalOpen(false)} history={backupHistory} onClearHistory={handleClearBackupHistory} onBackup={exportFullBackup} userMap={userMap} />
-                    <ScrollingQuote isOpen={isQuoteModalOpen} onClose={() => setIsQuoteModalOpen(false)} quote={dailyQuote} />                    <TeamManagementModal
+                    <ScrollingQuote isOpen={isQuoteModalOpen} onClose={() => setIsQuoteModalOpen(false)} quote={dailyQuote} />
+                    <TeamManagementModal
                         isOpen={isTeamModalOpen}
                         onClose={() => setIsTeamModalOpen(false)}
                         showNotification={showNotification}
@@ -8639,6 +8940,14 @@ const handleSignOut = async () => {
                         ACTION_DEFINITIONS={ACTION_DEFINITIONS}
                         onSaveManagementData={handleSaveManagementData}
                         onProfilesChange={refreshProfiles}
+                        setIsCreateUserModalOpen={setIsCreateUserModalOpen}
+                    />
+                    <CreateUserModal
+                        isOpen={isCreateUserModalOpen}
+                        onClose={() => setIsCreateUserModalOpen(false)}
+                        onSave={handleCreateUserDirectly}
+                        availableRoles={availableRoles}
+                        showNotification={showNotification}
                     />
                     <ProfileModal
                         isOpen={isProfileModalOpen}
@@ -8688,48 +8997,50 @@ const handleSignOut = async () => {
                         taskCount={selectedTasks.size}
                     />
                     <WorkbenchModal
-    isOpen={isWorkbenchModalOpen}
-    onClose={() => setIsWorkbenchModalOpen(false)}
-    onDateSelect={(date) => setEditingSummaryDate(date)}
-    session={session}
-    workSummaries={workSummaries}
-    onSummariesChange={setWorkSummaries}
-    userMap={userMap} // <-- 新增此行
-/>
+                        isOpen={isWorkbenchModalOpen}
+                        onClose={() => setIsWorkbenchModalOpen(false)}
+                        onDateSelect={(dateString) => setEditingSummary(dateString)}
+                        session={session}
+                        workSummaries={workSummaries}
+                        onSummariesChange={setWorkSummaries}
+                        userMap={userMap}
+                        setViewingSummary={setViewingSummary}
+                    />
+                    <SummaryViewModal
+                        summary={viewingSummary}
+                        onClose={() => setViewingSummary(null)}
+                        setSummaryToExport={setSummaryToExport}
+                        onModify={() => {
+                            const summaryToEdit = viewingSummary;
+                            setViewingSummary(null);
+                            setTimeout(() => {
+                                setEditingSummary(summaryToEdit);
+                            }, 200);
+                        }}
+                    />
                     <SummaryEditorModal
-                        isOpen={!!editingSummaryDate}
-                        onClose={() => setEditingSummaryDate(null)}
+                        isOpen={!!editingSummary}
+                        onClose={() => setEditingSummary(null)}
+                        initialData={editingSummary}
+                        tasks={tasks}
+                        session={session}
+                        showNotification={showNotification}
+                        summaries={workSummaries} // 【新增】
                         onSave={async (summaryData) => {
                             try {
-                                const { data, error } = await supabase
-                                    .from('work_summaries')
-                                    .upsert(summaryData, { onConflict: 'user_id, summary_date' })
-                                    .select();
-
-                                if (error) throw error;
-
-                                // 更新本地的总结列表，让日历上的小圆点立即显示
-                                setWorkSummaries(prev => {
-                                    const index = prev.findIndex(s => s.summary_date === summaryData.summary_date);
-                                    if (index > -1) {
-                                        const newSummaries = [...prev];
-                                        newSummaries[index] = data[0];
-                                        return newSummaries;
-                                    } else {
-                                        return [...prev, data[0]];
-                                    }
-                                });
-
+                                const { error: saveError } = await supabase.from('work_summaries').upsert(summaryData, { onConflict: 'user_id, summary_date' });
+                                if (saveError) throw saveError;
+                                const { data: allSummaries, error: fetchError } = await supabase.from('work_summaries').select('*');
+                                if (fetchError) throw fetchError;
+                                setWorkSummaries(allSummaries || []);
                                 showNotification('工作总结已成功保存！', 'success');
-                                setEditingSummaryDate(null); // 关闭弹窗
+                                setEditingSummary(null);
                             } catch (error) {
                                 showNotification(`保存失败: ${error.message}`, 'error');
                             }
                         }}
-                        date={editingSummaryDate}
-                        tasks={tasks}      // <-- 新增此行
-                        session={session}  // <-- 新增此行
                     />
+                    <SummaryImageExport summary={summaryToExport} onDone={() => setSummaryToExport(null)} userMap={userMap} />
                     <input type="file" id="fileUploader" accept=".xlsx, .xls, .csv" style={{ display: 'none' }} onChange={handleFileUpload} />
 
                     {/* --- 【修改点】让 header 可以在小屏幕上换行 --- */}
@@ -8885,6 +9196,3 @@ const handleSignOut = async () => {
 </body>
 
 </html>
-
-
-
